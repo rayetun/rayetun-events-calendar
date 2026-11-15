@@ -1,0 +1,172 @@
+/* RayEtun Events Calendar — block editor event panels. */
+
+.rayec-editor-panel .components-panel__row,
+.rayec-editor-panel > * {
+	box-sizing: border-box;
+}
+
+.rayec-editor-panel .components-base-control,
+.rayec-editor-panel .rayec-field,
+.rayec-editor-panel .rayec-repeat,
+.rayec-editor-panel .rayec-days {
+	margin-bottom: 16px;
+}
+
+.rayec-editor-panel .rayec-field {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.rayec-editor-panel .rayec-field label,
+.rayec-editor-panel .rayec-days legend {
+	padding: 0;
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 1.4;
+	text-transform: uppercase;
+}
+
+.rayec-editor-panel .rayec-field--inline {
+	flex-direction: row;
+	align-items: center;
+}
+
+.rayec-editor-panel input.rayec-input {
+	width: 100%;
+	min-height: 40px;
+	padding: 6px 8px;
+	border: 1px solid #949494;
+	border-radius: 2px;
+	font-size: 13px;
+}
+
+.rayec-editor-panel input.rayec-input--num {
+	width: 72px;
+}
+
+.rayec-editor-panel .rayec-repeat {
+	display: flex;
+	flex-direction: column;
+	padding: 12px;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+}
+
+.rayec-editor-panel .rayec-repeat > :last-child {
+	margin-bottom: 0;
+}
+
+.rayec-editor-panel .rayec-days {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding: 0;
+	border: 0;
+}
+
+.rayec-editor-panel .rayec-days legend {
+	width: 100%;
+	margin-bottom: 8px;
+}
+
+.rayec-editor-panel .rayec-days label {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 40px;
+	min-height: 36px;
+	padding: 0 6px;
+	border: 1px solid #949494;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.rayec-editor-panel .rayec-days label.is-on {
+	border-color: #0f766e;
+	background: #0f766e;
+	color: #fff;
+}
+
+.rayec-editor-panel .rayec-days input {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	opacity: 0;
+	cursor: pointer;
+}
+
+.rayec-editor-panel .rayec-days label:focus-within {
+	outline: 2px solid #0f766e;
+	outline-offset: 2px;
+}
+
+.rayec-editor-note {
+	margin: 0;
+	color: #757575;
+	font-size: 12px;
+}
+
+.rayec-editor-guard {
+	margin: 0 0 8px;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-editor-guard li {
+	margin: 0 0 8px;
+	padding-inline-start: 10px;
+	border-inline-start: 3px solid #b45309;
+}
+
+.rayec-editor-guard li.is-error {
+	border-inline-start-color: #b42318;
+}
+
+.rayec-editor-guard li.is-note {
+	border-inline-start-color: #64748b;
+}
+
+/* What to do about it, under what is wrong. */
+.rayec-editor-guard__fix {
+	display: block;
+	margin-top: 2px;
+	color: #50575e;
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.rayec-editor-guard.is-good {
+	color: #067647;
+	font-weight: 600;
+}
+
+.rayec-editor-times {
+	margin: 0 0 16px;
+	padding: 0;
+	border: 0;
+}
+
+.rayec-editor-times legend {
+	margin-bottom: 8px;
+	padding: 0;
+	font-size: 11px;
+	font-weight: 500;
+	text-transform: uppercase;
+}
+
+.rayec-editor-times__row {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 6px;
+}
+
+.rayec-editor-times .components-base-control {
+	margin-bottom: 6px;
+}

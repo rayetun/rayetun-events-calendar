@@ -1,0 +1,12 @@
+# Store everything with LF and check it out with LF, on every machine.
+# core.autocrlf is on by default on Windows, and PHPCS's WordPress standard
+# expects LF; without this the repository and the SVN deploy would carry CRLF.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary

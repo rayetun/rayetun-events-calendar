@@ -1,0 +1,1742 @@
+/**
+ * RayEtun Events Calendar — front end.
+ *
+ * Text and surfaces inherit from the theme (currentColor) so the calendar sits
+ * on light and dark themes alike; the brand colour is used for accents only.
+ */
+
+.rayec-cal,
+.rayec-single {
+	--rayec-accent: #0f766e;
+	--rayec-accent-strong: #115e59;
+	--rayec-line: color-mix(in srgb, currentColor 16%, transparent);
+	--rayec-soft: color-mix(in srgb, currentColor 5%, transparent);
+	--rayec-muted: color-mix(in srgb, currentColor 70%, transparent);
+	--rayec-radius: 12px;
+	--rayec-chip: var(--rayec-accent);
+	--rayec-on-accent: #fff;
+}
+
+/* ------------------------------------------------------------------ Themes
+ * With "Follow your theme" nothing is painted at all: every surface is
+ * transparent and every line is mixed from the inherited text colour, so the
+ * calendar belongs to whatever theme it sits in. The choices below paint the
+ * calendar themselves, for themes whose colours the calendar cannot read.
+ */
+.rayec-theme--light,
+.rayec-theme--dark,
+.rayec-theme--system,
+.rayec-theme--contrast {
+	padding: clamp(12px, 2vw, 20px);
+	border-radius: var(--rayec-radius);
+	background: var(--rayec-bg);
+	color: var(--rayec-text);
+}
+
+/* The countdown paints itself a tint; when it is also the themed root, the
+   theme's own background has to win, or its text sits on the page's colour. */
+.rayec-countdown:is(
+		.rayec-theme--light,
+		.rayec-theme--dark,
+		.rayec-theme--system,
+		.rayec-theme--contrast
+	) {
+	background: var(--rayec-bg);
+}
+
+.rayec-theme--light,
+.rayec-theme--system {
+	--rayec-bg: #fff;
+	--rayec-text: #15201f;
+}
+
+.rayec-theme--dark {
+	--rayec-bg: #111b1a;
+	--rayec-text: #e8f2f0;
+	--rayec-accent: #5eead4;
+	--rayec-accent-strong: #99f6e4;
+	--rayec-on-accent: #06302c;
+}
+
+/* Follows the visitor's own setting rather than the owner's. */
+@media (prefers-color-scheme: dark) {
+	.rayec-theme--system {
+		--rayec-bg: #111b1a;
+		--rayec-text: #e8f2f0;
+		--rayec-accent: #5eead4;
+		--rayec-accent-strong: #99f6e4;
+		--rayec-on-accent: #06302c;
+	}
+}
+
+/* Black on white, solid lines, nothing carried by a tint alone. */
+.rayec-theme--contrast {
+	--rayec-bg: #fff;
+	--rayec-text: #000;
+	--rayec-accent: #00413c;
+	--rayec-accent-strong: #000;
+	--rayec-on-accent: #fff;
+	--rayec-line: #000;
+	--rayec-soft: transparent;
+	--rayec-muted: #000;
+}
+
+.rayec-theme--contrast .rayec-btn,
+.rayec-theme--contrast .rayec-chip,
+.rayec-theme--contrast .rayec-facts,
+.rayec-theme--contrast .rayec-pv {
+	border-width: 2px;
+}
+
+.rayec-theme--contrast a:not(.rayec-btn) {
+	text-decoration: underline;
+}
+
+.rayec-theme--contrast .rayec-month td.has-events,
+.rayec-theme--contrast .rayec-mini__grid td.has-events > a {
+	outline: 2px solid currentColor;
+	outline-offset: -2px;
+}
+
+.rayec-cal {
+	position: relative;
+	container-type: inline-size;
+}
+
+.rayec-cal *,
+.rayec-single * {
+	box-sizing: border-box;
+}
+
+.rayec-sr {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}
+
+.rayec-ico {
+	flex: 0 0 auto;
+	vertical-align: -3px;
+}
+
+/* Buttons */
+.rayec-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-height: 44px;
+	min-width: 44px;
+	padding: 8px 16px;
+	border: 1px solid var(--rayec-line);
+	border-radius: 10px;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-size: 0.9em;
+	font-weight: 600;
+	line-height: 1.2;
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.rayec-btn:hover {
+	border-color: currentColor;
+	background: var(--rayec-soft);
+}
+
+.rayec-btn--primary,
+.rayec-btn[aria-current="true"] {
+	border-color: var(--rayec-accent);
+	background: var(--rayec-accent);
+	color: var(--rayec-on-accent);
+}
+
+.rayec-btn--primary:hover {
+	border-color: var(--rayec-accent-strong);
+	background: var(--rayec-accent-strong);
+	color: var(--rayec-on-accent);
+}
+
+.rayec-btn--icon {
+	padding: 6px;
+	font-size: 1.4em;
+}
+
+.rayec-cal a:focus-visible,
+.rayec-cal button:focus-visible,
+.rayec-cal input:focus-visible,
+.rayec-cal select:focus-visible,
+.rayec-single a:focus-visible,
+.rayec-single button:focus-visible,
+.rayec-single iframe:focus-visible,
+.rayec-month td:focus-visible {
+	outline: 3px solid var(--rayec-accent);
+	outline-offset: 2px;
+}
+
+/* Search and view switcher */
+.rayec-tools {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-bottom: 20px;
+	padding: 10px;
+	border: 1px solid var(--rayec-line);
+	border-radius: var(--rayec-radius);
+}
+
+.rayec-tools__form {
+	display: flex;
+	flex: 1 1 420px;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.rayec-tools__field {
+	position: relative;
+	display: flex;
+	flex: 1 1 200px;
+	align-items: center;
+}
+
+.rayec-tools__field .rayec-ico {
+	position: absolute;
+	inset-inline-start: 12px;
+	color: var(--rayec-muted);
+	pointer-events: none;
+}
+
+.rayec-tools input[type="search"],
+.rayec-tools select {
+	width: 100%;
+	min-height: 44px;
+	margin: 0;
+	padding: 8px 12px;
+	border: 1px solid transparent;
+	border-radius: 10px;
+	background: var(--rayec-soft);
+	color: inherit;
+	font: inherit;
+	font-size: 0.95em;
+}
+
+.rayec-tools input[type="search"] {
+	padding-inline-start: 38px;
+}
+
+.rayec-tools select {
+	flex: 0 1 190px;
+	width: auto;
+}
+
+.rayec-tools select option {
+	background: Canvas;
+	color: CanvasText;
+}
+
+.rayec-tools__views,
+.rayec-cal__nav,
+.rayec-cal__pager,
+.rayec-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-cal__bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 14px;
+	margin-bottom: 16px;
+}
+
+.rayec-cal__title {
+	margin: 0;
+	font-size: 1.6em;
+	line-height: 1.2;
+}
+
+.rayec-cal__filtered {
+	margin: 0 0 14px;
+	font-size: 0.9em;
+	color: var(--rayec-muted);
+}
+
+.rayec-cal__pager,
+.rayec-actions {
+	margin-top: 24px;
+}
+
+.rayec-cal__foot {
+	margin: 16px 0 0;
+	font-size: 0.875em;
+}
+
+.rayec-cal__empty {
+	margin: 16px 0 0;
+	padding: 32px 16px;
+	border: 1px dashed var(--rayec-line);
+	border-radius: var(--rayec-radius);
+	text-align: center;
+	color: var(--rayec-muted);
+}
+
+/* Month grid */
+.rayec-month {
+	width: 100%;
+	margin: 0;
+	border-collapse: separate;
+	border-spacing: 0;
+	table-layout: fixed;
+	border: 1px solid var(--rayec-line);
+	border-radius: var(--rayec-radius);
+	overflow: hidden;
+}
+
+.rayec-month th {
+	padding: 10px 8px;
+	border: 0;
+	border-bottom: 1px solid var(--rayec-line);
+	background: transparent;
+	color: var(--rayec-muted);
+	font-size: 0.72em;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-align: start;
+	text-transform: uppercase;
+}
+
+.rayec-month th abbr {
+	text-decoration: none;
+}
+
+.rayec-month td {
+	height: 128px;
+	padding: 8px;
+	border: 0;
+	border-inline-end: 1px solid var(--rayec-line);
+	border-bottom: 1px solid var(--rayec-line);
+	vertical-align: top;
+}
+
+.rayec-month td:last-child {
+	border-inline-end: 0;
+}
+
+.rayec-month tr:last-child td {
+	border-bottom: 0;
+}
+
+.rayec-month td.is-outside {
+	background: var(--rayec-soft);
+}
+
+.rayec-month__day {
+	margin-bottom: 6px;
+}
+
+.rayec-month__num {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 32px;
+	height: 32px;
+	border-radius: 999px;
+	font-size: 1.05em;
+	font-weight: 700;
+}
+
+.rayec-month td.is-past .rayec-month__num,
+.rayec-month td.is-outside .rayec-month__num {
+	color: var(--rayec-muted);
+	font-weight: 600;
+}
+
+.rayec-month td.is-today .rayec-month__num {
+	background: var(--rayec-accent);
+	color: var(--rayec-on-accent);
+}
+
+/* Full date: read by screen readers on wide screens, shown on small ones. */
+.rayec-month__full {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.rayec-month__events {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-month__events li {
+	margin: 0;
+}
+
+.rayec-month__events li.is-extra {
+	display: none;
+}
+
+.rayec-chip {
+	display: block;
+	padding: 4px 8px;
+	border-inline-start: 3px solid var(--rayec-chip);
+	border-radius: 6px;
+	background: color-mix(in srgb, var(--rayec-chip) 11%, transparent);
+	color: inherit;
+	font-size: 0.78em;
+	line-height: 1.35;
+	text-decoration: none;
+	overflow-wrap: break-word;
+	hyphens: auto;
+}
+
+@container (max-width: 760px) {
+	.rayec-chip {
+		padding: 3px 5px;
+		font-size: 0.7em;
+	}
+
+	.rayec-month td {
+		padding: 5px;
+	}
+}
+
+.rayec-chip:hover,
+.rayec-chip:focus-visible {
+	background: color-mix(in srgb, var(--rayec-chip) 22%, transparent);
+}
+
+.rayec-chip:hover .rayec-chip__title {
+	text-decoration: underline;
+}
+
+.rayec-chip__time {
+	display: block;
+	color: var(--rayec-muted);
+	font-size: 0.92em;
+	white-space: nowrap;
+}
+
+.rayec-chip__title {
+	font-weight: 600;
+}
+
+.rayec-month td.is-past .rayec-chip {
+	opacity: 0.75;
+}
+
+.rayec-repeat {
+	display: inline-flex;
+	color: var(--rayec-muted);
+}
+
+.rayec-repeat .rayec-ico {
+	width: 12px;
+	height: 12px;
+}
+
+.rayec-chip.is-cancelled .rayec-chip__title,
+.rayec-item.is-cancelled .rayec-item__title a {
+	text-decoration: line-through;
+}
+
+.rayec-chip__status {
+	display: block;
+	font-size: 0.85em;
+	font-weight: 700;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+}
+
+.rayec-month__more a {
+	display: inline-block;
+	padding: 2px 8px;
+	color: inherit;
+	font-size: 0.78em;
+	font-weight: 700;
+}
+
+/* Preview card */
+.rayec-pv {
+	position: absolute;
+	z-index: 20;
+	width: 300px;
+	max-width: calc(100% - 16px);
+	border: 1px solid var(--rayec-line);
+	border-radius: var(--rayec-radius);
+	background: Canvas;
+	color: CanvasText;
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
+	overflow: hidden;
+}
+
+.rayec-pv[hidden] {
+	display: none;
+}
+
+.rayec-pv img {
+	display: block;
+	width: 100%;
+	height: 150px;
+	object-fit: cover;
+}
+
+.rayec-pv__body {
+	padding: 14px 16px 16px;
+}
+
+.rayec-pv__body p {
+	margin: 0;
+}
+
+.rayec-pv__when {
+	color: var(--rayec-accent);
+	font-size: 0.78em;
+	font-weight: 700;
+}
+
+.rayec-pv__title {
+	margin-top: 4px !important;
+	font-size: 1.05em;
+	font-weight: 700;
+	line-height: 1.3;
+}
+
+.rayec-pv__where {
+	display: flex;
+	gap: 5px;
+	margin-top: 6px !important;
+	font-size: 0.82em;
+	opacity: 0.8;
+}
+
+/* The day card in the mini calendar: a short list rather than one event. */
+.rayec-pv__list {
+	margin: 6px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-pv__list li {
+	display: flex;
+	gap: 8px;
+	padding: 4px 0;
+	border-top: 1px solid var(--rayec-line);
+	font-size: 0.88em;
+	line-height: 1.35;
+}
+
+.rayec-pv__time {
+	flex: 0 0 auto;
+	color: var(--rayec-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.rayec-pv__name {
+	font-weight: 600;
+}
+
+.rayec-pv__text {
+	margin-top: 8px !important;
+	font-size: 0.85em;
+	line-height: 1.5;
+	opacity: 0.85;
+}
+
+/* A still map, fetched once by the site itself. */
+.rayec-map.is-still {
+	margin: 0;
+}
+
+.rayec-map.is-still img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border-radius: var(--rayec-radius);
+}
+
+.rayec-map.is-still figcaption {
+	margin-top: 6px;
+	color: var(--rayec-muted);
+	font-size: 0.78em;
+}
+
+.rayec-place__links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 18px;
+}
+
+/* Subscribe */
+.rayec-sub summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.rayec-sub__note {
+	margin: 8px 0 0;
+	color: var(--rayec-muted);
+	font-size: 0.88em;
+	max-width: 60ch;
+}
+
+.rayec-sub__list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 12px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+@media (forced-colors: active) {
+	.rayec-theme--light,
+	.rayec-theme--dark,
+	.rayec-theme--system,
+	.rayec-theme--contrast {
+		padding: 0;
+	}
+
+	/* Every surface is painted by the system here, so panels need real lines. */
+	.rayec-btn,
+	.rayec-facts,
+	.rayec-section,
+	.rayec-countdown,
+	.rayec-month td,
+	.rayec-week td {
+		border: 1px solid CanvasText;
+	}
+
+	/* A tint cannot be seen at all, so a busy day is outlined instead. */
+	.rayec-month td.has-events,
+	.rayec-week th.is-today,
+	.rayec-mini__grid td.has-events > a,
+	.rayec-mini__grid td.is-today > * {
+		outline: 2px solid CanvasText;
+		outline-offset: -2px;
+	}
+
+	.rayec-mini__grid td.has-events > a:hover,
+	.rayec-mini__grid td.has-events > a:focus-visible {
+		forced-color-adjust: none;
+		background: Highlight;
+		color: HighlightText;
+	}
+
+	.rayec-countdown__left,
+	.rayec-week th.is-today .rayec-week__num {
+		forced-color-adjust: none;
+		color: CanvasText;
+	}
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.rayec-pv {
+		animation: rayec-pop 0.14s ease-out;
+	}
+
+	.rayec-btn,
+	.rayec-chip,
+	.rayec-item__media img {
+		transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.25s ease;
+	}
+}
+
+@keyframes rayec-pop {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+/* List view */
+.rayec-list__month {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin: 32px 0 8px;
+	color: var(--rayec-muted);
+	font-size: 0.95em;
+	font-weight: 600;
+}
+
+.rayec-list__month:first-child {
+	margin-top: 0;
+}
+
+.rayec-list__month::after {
+	content: "";
+	flex: 1;
+	height: 1px;
+	background: var(--rayec-line);
+}
+
+.rayec-list__items {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-item {
+	display: grid;
+	grid-template-columns: 64px minmax(0, 1fr);
+	gap: 20px;
+	margin: 0;
+	padding: 24px 0;
+	border-bottom: 1px solid var(--rayec-line);
+}
+
+.rayec-item.has-image {
+	grid-template-columns: 64px minmax(0, 1fr) minmax(0, 280px);
+}
+
+.rayec-item:last-child {
+	border-bottom: 0;
+}
+
+.rayec-item__date {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	align-self: start;
+	padding: 8px 0;
+	border-radius: 10px;
+	background: var(--rayec-soft);
+	line-height: 1.15;
+}
+
+.rayec-item__dow {
+	color: var(--rayec-accent);
+	font-size: 0.7em;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.rayec-item__num {
+	font-size: 1.6em;
+	font-weight: 700;
+}
+
+.rayec-item__body > * {
+	margin: 0;
+}
+
+.rayec-item__when {
+	font-size: 0.85em;
+	color: var(--rayec-muted);
+}
+
+.rayec-item__title {
+	margin-top: 4px;
+	font-size: 1.35em;
+	line-height: 1.25;
+}
+
+.rayec-item__title a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.rayec-item__title a:hover {
+	text-decoration: underline;
+}
+
+.rayec-item__where {
+	margin-top: 8px;
+	font-size: 0.9em;
+}
+
+.rayec-item__text {
+	margin-top: 8px;
+	font-size: 0.95em;
+	line-height: 1.55;
+	color: var(--rayec-muted);
+}
+
+.rayec-item__media {
+	display: block;
+	align-self: start;
+	border-radius: 10px;
+	overflow: hidden;
+}
+
+.rayec-item__media img {
+	display: block;
+	width: 100%;
+	height: auto;
+	aspect-ratio: 16 / 10;
+	object-fit: cover;
+}
+
+.rayec-item:hover .rayec-item__media img {
+	transform: scale(1.03);
+}
+
+/* Tags */
+.rayec-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 12px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-tag {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	margin: 0;
+	padding: 3px 10px;
+	border: 1px solid var(--rayec-line);
+	border-radius: 999px;
+	font-size: 0.78em;
+	font-weight: 600;
+	line-height: 1.5;
+}
+
+.rayec-tag .rayec-ico {
+	width: 13px;
+	height: 13px;
+}
+
+.rayec-tag--cat {
+	border-color: transparent;
+	background: color-mix(in srgb, var(--rayec-chip) 14%, transparent);
+}
+
+.rayec-tag--cat::before {
+	content: "";
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--rayec-chip);
+}
+
+.rayec-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border: 1px solid currentColor;
+	border-radius: 999px;
+	font-size: 0.55em;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	vertical-align: middle;
+}
+
+/* Single event */
+.rayec-single {
+	container-type: inline-size;
+	margin: 0 0 32px;
+}
+
+.rayec-single--after {
+	margin: 0;
+}
+
+.rayec-banner {
+	margin: 0 0 20px;
+	padding: 14px 18px;
+	border: 1px solid currentColor;
+	border-inline-start-width: 6px;
+	border-radius: 10px;
+}
+
+/* Key facts: one panel holding when, where, who, and the calendar buttons. */
+.rayec-facts {
+	margin: 20px 0 0;
+	padding: 24px;
+	border: 1px solid var(--rayec-line);
+	border-radius: var(--rayec-radius);
+	background: var(--rayec-soft);
+}
+
+.rayec-facts__grid {
+	display: grid;
+	gap: 22px 28px;
+	margin: 0;
+}
+
+@container (min-width: 600px) {
+	.rayec-facts__grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+.rayec-fact {
+	margin: 0;
+	min-width: 0;
+}
+
+.rayec-fact dt {
+	margin: 0 0 6px;
+	color: var(--rayec-muted);
+	font-size: 0.72em;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.rayec-fact dd {
+	margin: 0;
+}
+
+.rayec-fact__main {
+	margin: 0;
+	font-size: 1.05em;
+	font-weight: 600;
+	line-height: 1.35;
+}
+
+.rayec-fact__note {
+	display: flex;
+	align-items: flex-start;
+	gap: 7px;
+	margin: 6px 0 0;
+	color: var(--rayec-muted);
+	font-size: 0.9em;
+	line-height: 1.45;
+}
+
+.rayec-fact__note .rayec-ico {
+	flex: 0 0 auto;
+	margin-top: 2px;
+	color: var(--rayec-accent);
+}
+
+.rayec-facts .rayec-actions {
+	margin: 22px 0 0;
+	padding-top: 20px;
+	border-top: 1px solid var(--rayec-line);
+}
+
+/* Every block after the description keeps the same rhythm. */
+.rayec-section {
+	margin: 36px 0 0;
+	padding-top: 32px;
+	border-top: 1px solid var(--rayec-line);
+}
+
+.rayec-section__title {
+	margin: 0 0 16px;
+	font-size: 1.2em;
+	line-height: 1.25;
+}
+
+.rayec-place {
+	display: grid;
+	gap: 24px;
+}
+
+.rayec-place.has-map {
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.rayec-place__info > * {
+	margin: 0;
+}
+
+.rayec-place__name {
+	margin-bottom: 0;
+}
+
+.rayec-place__address {
+	margin-top: 6px;
+	color: var(--rayec-muted);
+}
+
+.rayec-place__sub {
+	margin-top: 18px;
+	color: var(--rayec-muted);
+	font-size: 0.75em;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.rayec-place__notes {
+	margin-top: 10px;
+	font-size: 0.9em;
+	color: var(--rayec-muted);
+}
+
+.rayec-place__links {
+	margin-top: 16px;
+	font-size: 0.9em;
+}
+
+.rayec-access {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 8px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-access li {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	margin: 0;
+	padding: 3px 10px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--rayec-accent) 12%, transparent);
+	font-size: 0.85em;
+	font-weight: 600;
+}
+
+.rayec-access .rayec-ico {
+	width: 13px;
+	height: 13px;
+	color: var(--rayec-accent);
+}
+
+.rayec-map {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	min-height: 240px;
+	padding: 20px;
+	border-radius: 10px;
+	background:
+		linear-gradient(var(--rayec-soft), var(--rayec-soft)),
+		repeating-linear-gradient(0deg, transparent 0 31px, var(--rayec-line) 31px 32px),
+		repeating-linear-gradient(90deg, transparent 0 31px, var(--rayec-line) 31px 32px);
+	text-align: center;
+}
+
+.rayec-map .rayec-btn {
+	background: Canvas;
+	color: CanvasText;
+}
+
+.rayec-map__note {
+	max-width: 30ch;
+	margin: 0;
+	font-size: 0.78em;
+	color: var(--rayec-muted);
+}
+
+.rayec-map.is-loaded {
+	padding: 0;
+	overflow: hidden;
+}
+
+.rayec-map iframe {
+	display: block;
+	width: 100%;
+	height: 100%;
+	min-height: 280px;
+	border: 0;
+}
+
+.rayec-dates ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-dates li {
+	margin: 0;
+}
+
+.rayec-dates li a {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 13px 4px;
+	border-bottom: 1px solid var(--rayec-line);
+	color: inherit;
+	font-size: 0.95em;
+	text-decoration: none;
+}
+
+.rayec-dates li:first-child a {
+	border-top: 1px solid var(--rayec-line);
+}
+
+.rayec-dates li a:hover,
+.rayec-dates li a:focus-visible {
+	color: var(--rayec-accent);
+}
+
+.rayec-dates li a:hover span:first-child,
+.rayec-dates li a:focus-visible span:first-child {
+	text-decoration: underline;
+}
+
+.rayec-dates__go {
+	flex: 0 0 auto;
+	color: var(--rayec-muted);
+	font-size: 1.3em;
+	line-height: 1;
+}
+
+.rayec-dates li a:hover .rayec-dates__go {
+	color: var(--rayec-accent);
+}
+
+/* Small screens and high zoom: the grid becomes an agenda of the days that have events. */
+/* More filters, folded away until wanted */
+.rayec-tools__more {
+	flex: 1 1 100%;
+	margin: 0;
+}
+
+.rayec-tools__more summary {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 2px;
+	color: var(--rayec-accent);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.rayec-tools__more summary:focus-visible {
+	outline: 2px solid var(--rayec-accent);
+	outline-offset: 2px;
+}
+
+.rayec-tools__panel {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.rayec-tools__panel select {
+	flex: 1 1 190px;
+	width: auto;
+}
+
+/* Which filters are in use */
+.rayec-cal__active {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin: 0 0 16px;
+}
+
+.rayec-cal__active-label {
+	margin: 0;
+	color: var(--rayec-muted);
+	font-size: 0.9em;
+}
+
+.rayec-cal__active ul {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-cal__active li {
+	margin: 0;
+}
+
+.rayec-cal__active a {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 32px;
+	padding: 4px 12px;
+	border: 1px solid var(--rayec-line);
+	border-radius: 999px;
+	color: inherit;
+	font-size: 0.9em;
+	text-decoration: none;
+}
+
+.rayec-cal__active a:hover,
+.rayec-cal__active a:focus-visible {
+	border-color: var(--rayec-accent);
+	color: var(--rayec-accent);
+}
+
+/* Week grid */
+.rayec-week {
+	width: 100%;
+	margin: 0;
+	border: 1px solid var(--rayec-line);
+	border-collapse: separate;
+	border-spacing: 0;
+	border-radius: var(--rayec-radius);
+	table-layout: fixed;
+	overflow: hidden;
+}
+
+.rayec-week th {
+	padding: 8px;
+	border: 0;
+	border-inline-end: 1px solid var(--rayec-line);
+	border-bottom: 1px solid var(--rayec-line);
+	background: transparent;
+	text-align: start;
+}
+
+.rayec-week th:last-child,
+.rayec-week td:last-child {
+	border-inline-end: 0;
+}
+
+.rayec-week th a {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	color: inherit;
+	text-decoration: none;
+}
+
+.rayec-week th a:hover .rayec-week__dow,
+.rayec-week th a:focus-visible .rayec-week__dow {
+	text-decoration: underline;
+}
+
+.rayec-week__dow {
+	color: var(--rayec-muted);
+	font-size: 0.72em;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.rayec-week__num {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 28px;
+	height: 28px;
+	border-radius: 999px;
+	font-size: 1em;
+	font-weight: 700;
+}
+
+.rayec-week th.is-today .rayec-week__num {
+	background: var(--rayec-accent);
+	color: var(--rayec-on-accent);
+}
+
+.rayec-week td {
+	height: 300px;
+	padding: 8px;
+	border: 0;
+	border-inline-end: 1px solid var(--rayec-line);
+	vertical-align: top;
+}
+
+.rayec-week td.is-past {
+	background: var(--rayec-soft);
+}
+
+.rayec-week__none {
+	margin: 0;
+	color: var(--rayec-muted);
+	font-size: 0.85em;
+}
+
+/* Full date: read by screen readers on wide screens, shown on small ones. */
+.rayec-week__full {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.rayec-week .rayec-chip__title {
+	white-space: normal;
+}
+
+/* Mini calendar */
+.rayec-mini {
+	font-size: 0.95em;
+}
+
+.rayec-mini__bar {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 8px;
+}
+
+.rayec-mini__month {
+	flex: 1;
+	order: -1;
+	margin: 0;
+	font-weight: 700;
+}
+
+.rayec-mini__nav {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border: 1px solid var(--rayec-line);
+	border-radius: 8px;
+	color: inherit;
+	line-height: 1;
+	text-decoration: none;
+}
+
+.rayec-mini__nav:hover {
+	border-color: var(--rayec-accent);
+	color: var(--rayec-accent);
+}
+
+.rayec-mini__grid {
+	width: 100%;
+	margin: 0;
+	border: 0;
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+
+.rayec-mini__grid th {
+	padding: 4px 0;
+	border: 0;
+	background: transparent;
+	color: var(--rayec-muted);
+	font-size: 0.72em;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-align: center;
+	text-transform: uppercase;
+}
+
+.rayec-mini__grid th abbr {
+	text-decoration: none;
+}
+
+.rayec-mini__grid td {
+	padding: 2px;
+	border: 0;
+	text-align: center;
+}
+
+.rayec-mini__grid td > * {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 34px;
+	height: 34px;
+	border-radius: 999px;
+	color: inherit;
+	text-decoration: none;
+}
+
+/* Days belonging to the month either side. Being outside the month is shown
+   by where they sit; the muted colour says it again. A further opacity on top
+   of that took the contrast to 2.8:1, which fails WCAG 1.4.3, so it is gone. */
+.rayec-mini__grid td.is-outside {
+	color: var(--rayec-muted);
+}
+
+.rayec-mini__grid td.has-events > a {
+	background: color-mix(in srgb, var(--rayec-accent) 13%, transparent);
+	color: var(--rayec-accent);
+	font-weight: 700;
+}
+
+.rayec-mini__grid td.has-events > a:hover,
+.rayec-mini__grid td.has-events > a:focus-visible {
+	background: var(--rayec-accent);
+	color: var(--rayec-on-accent);
+}
+
+.rayec-mini__grid td.is-today > * {
+	box-shadow: inset 0 0 0 2px var(--rayec-accent);
+}
+
+.rayec-mini__all {
+	margin: 10px 0 0;
+	font-size: 0.9em;
+}
+
+/* Upcoming events */
+.rayec-up__list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-up__item {
+	margin: 0;
+}
+
+.rayec-up__item a {
+	display: flex;
+	gap: 14px;
+	align-items: flex-start;
+	padding: 12px 4px;
+	border-bottom: 1px solid var(--rayec-line);
+	color: inherit;
+	text-decoration: none;
+}
+
+.rayec-up__item:first-child a {
+	border-top: 1px solid var(--rayec-line);
+}
+
+.rayec-up__date {
+	display: flex;
+	flex: 0 0 auto;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	padding: 6px 0;
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--rayec-chip) 13%, transparent);
+	line-height: 1.1;
+}
+
+.rayec-up__mon {
+	color: var(--rayec-muted);
+	font-size: 0.68em;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.rayec-up__num {
+	font-size: 1.2em;
+	font-weight: 700;
+}
+
+.rayec-up__body {
+	display: block;
+	min-width: 0;
+	flex: 1;
+}
+
+.rayec-up__title {
+	display: block;
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+.rayec-up__item a:hover .rayec-up__title,
+.rayec-up__item a:focus-visible .rayec-up__title {
+	text-decoration: underline;
+}
+
+.rayec-up__when,
+.rayec-up__where {
+	display: block;
+	margin-top: 2px;
+	color: var(--rayec-muted);
+	font-size: 0.85em;
+}
+
+.rayec-up__media {
+	display: block;
+	flex: 0 0 auto;
+	width: 64px;
+}
+
+.rayec-up__media img {
+	display: block;
+	width: 64px;
+	height: 64px;
+	border-radius: 10px;
+	object-fit: cover;
+}
+
+/* Countdown */
+.rayec-countdown {
+	padding: 22px;
+	border: 1px solid var(--rayec-line);
+	border-radius: var(--rayec-radius);
+	background: var(--rayec-soft);
+	text-align: center;
+}
+
+.rayec-countdown__label {
+	margin: 0;
+	color: var(--rayec-muted);
+	font-size: 0.72em;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.rayec-countdown__title {
+	margin: 8px 0 0;
+	font-size: 1.2em;
+	font-weight: 700;
+	line-height: 1.25;
+}
+
+.rayec-countdown__title a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.rayec-countdown__title a:hover,
+.rayec-countdown__title a:focus-visible {
+	text-decoration: underline;
+}
+
+.rayec-countdown__when {
+	margin: 6px 0 0;
+	color: var(--rayec-muted);
+	font-size: 0.9em;
+}
+
+.rayec-countdown__left {
+	margin: 14px 0 0;
+	padding-top: 14px;
+	border-top: 1px solid var(--rayec-line);
+	color: var(--rayec-accent);
+	font-size: 1.05em;
+	font-weight: 700;
+}
+
+@media (max-width: 640px) {
+	.rayec-week,
+	.rayec-week tbody,
+	.rayec-week tr,
+	.rayec-week td {
+		display: block;
+		width: auto;
+		height: auto;
+		border: 0;
+		border-radius: 0;
+	}
+
+	.rayec-week thead,
+	.rayec-week td:not(.has-events) {
+		display: none;
+	}
+
+	.rayec-week td.has-events {
+		margin-bottom: 10px;
+		padding: 14px;
+		border: 1px solid var(--rayec-line);
+		border-radius: var(--rayec-radius);
+	}
+
+	.rayec-week td.is-today {
+		border: 2px solid var(--rayec-accent);
+	}
+
+	.rayec-week__full {
+		position: static;
+		display: block;
+		width: auto;
+		height: auto;
+		margin-bottom: 8px;
+		clip-path: none;
+		font-weight: 700;
+	}
+
+	.rayec-month,
+	.rayec-month tbody,
+	.rayec-month tr,
+	.rayec-month td {
+		display: block;
+		width: auto;
+		height: auto;
+		border: 0;
+		border-radius: 0;
+	}
+
+	.rayec-month thead,
+	.rayec-month td:not(.has-events),
+	.rayec-month__num,
+	.rayec-month__more {
+		display: none;
+	}
+
+	/* Except when the day holds more than the page is willing to carry: then
+	   the link is the only way to the rest of them. */
+	.rayec-month__more.is-always {
+		display: list-item;
+	}
+
+	.rayec-month__events li.is-extra {
+		display: block;
+	}
+
+	.rayec-month td.has-events {
+		margin-bottom: 10px;
+		padding: 14px;
+		border: 1px solid var(--rayec-line);
+		border-radius: var(--rayec-radius);
+		background: transparent;
+	}
+
+	.rayec-month td.is-today {
+		border: 2px solid var(--rayec-accent);
+	}
+
+	.rayec-month__full {
+		position: static;
+		width: auto;
+		height: auto;
+		clip-path: none;
+		font-weight: 700;
+	}
+
+	.rayec-chip {
+		padding: 10px 12px;
+		font-size: 0.95em;
+	}
+
+	.rayec-item,
+	.rayec-item.has-image {
+		grid-template-columns: 56px minmax(0, 1fr);
+	}
+
+	.rayec-item__media {
+		grid-column: 1 / -1;
+		grid-row: 1;
+	}
+
+	.rayec-place.has-map {
+		grid-template-columns: 1fr;
+	}
+
+	.rayec-facts {
+		padding: 18px;
+	}
+
+	.rayec-section {
+		margin-top: 28px;
+		padding-top: 24px;
+	}
+}
+
+@media (forced-colors: active) {
+	.rayec-btn--primary,
+	.rayec-btn[aria-current="true"],
+	.rayec-month td.is-today .rayec-month__num {
+		border: 2px solid Highlight;
+		forced-color-adjust: none;
+		background: Highlight;
+		color: HighlightText;
+	}
+
+	.rayec-chip,
+	.rayec-pv {
+		border: 1px solid CanvasText;
+	}
+}
+
+.rayec-place__room {
+	margin: 6px 0 0;
+	font-weight: 600;
+}
+
+.rayec-speakers ul {
+	display: grid;
+	gap: 24px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+@container (min-width: 600px) {
+	.rayec-speakers ul {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+.rayec-speaker {
+	display: flex;
+	gap: 16px;
+	align-items: flex-start;
+	margin: 0;
+	min-width: 0;
+}
+
+.rayec-speaker__photo {
+	flex: 0 0 auto;
+	width: 72px;
+	height: 72px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.rayec-speaker__body {
+	min-width: 0;
+}
+
+.rayec-speaker__name {
+	margin: 0;
+	font-size: 1.02em;
+	font-weight: 700;
+	line-height: 1.3;
+}
+
+.rayec-speaker__role {
+	margin: 3px 0 0;
+	color: var(--rayec-muted);
+	font-size: 0.9em;
+	font-weight: 400;
+}
+
+.rayec-speaker__bio {
+	margin: 10px 0 0;
+	font-size: 0.93em;
+	line-height: 1.5;
+}
+
+.rayec-speaker__link {
+	margin: 8px 0 0;
+	font-size: 0.9em;
+}
+
+.rayec-program__name {
+	display: block;
+	min-width: 0;
+	font-weight: 600;
+}
+
+.rayec-program__when {
+	display: block;
+	margin-top: 2px;
+	color: var(--rayec-muted);
+	font-size: 0.88em;
+	font-weight: 400;
+}
+
+.rayec-tag--cat .rayec-ico {
+	margin-inline-end: 4px;
+	vertical-align: -2px;
+}

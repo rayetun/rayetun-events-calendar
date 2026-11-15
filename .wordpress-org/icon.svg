@@ -1,0 +1,100 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="RayEtun Events Calendar">
+  <style>
+    /* The finder crosses the grid and settles on the day nearest the badge. */
+    .rec2-find { animation: rec2-find 5.5s cubic-bezier(.33,.02,.2,1) infinite; }
+    @keyframes rec2-find {
+      0%        { transform: translate(0, 0);     opacity: 0; }
+      8%        { transform: translate(2px, 0);   opacity: 1; }
+      52%, 72%  { transform: translate(84px, 32px); opacity: 1; }
+      86%, 100% { transform: translate(84px, 32px); opacity: 0; }
+    }
+
+    /* The badge answers as it lands. The clock face never moves. */
+    .rec2-ring { animation: rec2-ring 5.5s ease-out infinite; }
+    @keyframes rec2-ring {
+      0%, 56% { stroke-opacity: 0; }
+      70%     { stroke-opacity: 1; }
+      100%    { stroke-opacity: 0; }
+    }
+    .rec2-glow { animation: rec2-glow 5.5s ease-out infinite; }
+    @keyframes rec2-glow {
+      0%, 56% { opacity: 0; }
+      70%     { opacity: .5; }
+      100%    { opacity: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .rec2-find, .rec2-ring, .rec2-glow { animation: none; }
+      .rec2-find { transform: translate(84px, 32px); opacity: .92; }
+      .rec2-ring, .rec2-glow { opacity: 0; }
+    }
+  </style>
+
+  <defs>
+    <linearGradient id="r2Leaf" x1="30" y1="46" x2="206" y2="214" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2cc9b5"/>
+      <stop offset="0.42" stop-color="#109184"/>
+      <stop offset="1" stop-color="#0a4f4a"/>
+    </linearGradient>
+    <linearGradient id="r2Band" x1="28" y1="52" x2="208" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0a524c" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#083f3a" stop-opacity="0.38"/>
+    </linearGradient>
+    <linearGradient id="r2Tab" x1="0" y1="24" x2="0" y2="68" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#14897e"/>
+      <stop offset="1" stop-color="#0a4f4a"/>
+    </linearGradient>
+    <radialGradient id="r2Gloss" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.58"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="r2Badge" x1="170" y1="170" x2="234" y2="234" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fcd34d"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+    <filter id="r2Soft" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+    <clipPath id="r2Clip">
+      <rect x="28" y="52" width="180" height="160" rx="30"/>
+    </clipPath>
+  </defs>
+
+  <rect x="66" y="24" width="20" height="44" rx="10" fill="url(#r2Tab)"/>
+  <rect x="150" y="24" width="20" height="44" rx="10" fill="url(#r2Tab)"/>
+
+  <rect x="28" y="52" width="180" height="160" rx="30" fill="url(#r2Leaf)"/>
+
+  <g clip-path="url(#r2Clip)">
+    <rect x="28" y="52" width="180" height="46" fill="url(#r2Band)"/>
+    <ellipse cx="76" cy="52" rx="98" ry="68" fill="url(#r2Gloss)"/>
+  </g>
+  <path d="M28 98 H208" stroke="#ffffff" stroke-opacity="0.26" stroke-width="2"/>
+  <rect x="29" y="53" width="178" height="158" rx="29" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="2"/>
+
+  <!-- the days -->
+  <g fill="#ffffff" fill-opacity="0.46">
+    <circle cx="62" cy="124" r="9"/>
+    <circle cx="104" cy="124" r="9"/>
+    <circle cx="146" cy="124" r="9"/>
+    <circle cx="62" cy="156" r="9"/>
+    <circle cx="104" cy="156" r="9"/>
+    <circle cx="146" cy="156" r="9"/>
+    <circle cx="62" cy="188" r="9"/>
+    <circle cx="104" cy="188" r="9"/>
+  </g>
+
+  <!-- the finder -->
+  <g class="rec2-find">
+    <circle cx="62" cy="124" r="17" fill="none" stroke="#ffffff" stroke-width="2"/>
+  </g>
+
+  <!-- the moment: a clock breaking the calendar's edge at lower right -->
+  <circle class="rec2-glow" cx="202" cy="202" r="46" fill="#f59e0b" opacity="0" filter="url(#r2Soft)"/>
+  <circle cx="202" cy="202" r="40" fill="url(#r2Badge)"/>
+  <circle cx="202" cy="202" r="40" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="2.5"/>
+  <circle class="rec2-ring" cx="202" cy="202" r="40" fill="none" stroke="#ffffff" stroke-width="4" stroke-opacity="0"/>
+  <path d="M202 179 V203 L219 213" fill="none" stroke="#ffffff" stroke-width="10"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

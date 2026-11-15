@@ -1,0 +1,121 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="RayEtun Events Calendar">
+  <style>
+    /* The date finder. A ring glides along the middle row and decelerates
+       onto the one day that has something on it, holds, then fades. One pass
+       every 5.5s, so it reads as a glance rather than a loop. */
+    .rec-find {
+      animation: rec-find 5.5s cubic-bezier(.33,.02,.2,1) infinite;
+    }
+    @keyframes rec-find {
+      0%        { transform: translateX(0);    opacity: 0; }
+      8%        { transform: translateX(3px);  opacity: 1; }
+      54%, 74%  { transform: translateX(83px); opacity: 1; }
+      88%, 100% { transform: translateX(83px); opacity: 0; }
+    }
+
+    /* The day answers as the ring lands. The amber chip itself never moves
+       and never disappears — only its surround replies. */
+    .rec-glow { animation: rec-glow 5.5s ease-out infinite; }
+    @keyframes rec-glow {
+      0%, 48% { opacity: 0; }
+      62%     { opacity: .6; }
+      88%     { opacity: 0; }
+      100%    { opacity: 0; }
+    }
+
+    .rec-halo {
+      animation: rec-halo 5.5s ease-out infinite;
+      transform-origin: 149px 160px;
+    }
+    @keyframes rec-halo {
+      0%, 50% { opacity: 0; transform: scale(.7); }
+      64%     { opacity: .9; transform: scale(1); }
+      90%     { opacity: 0; transform: scale(1.26); }
+      100%    { opacity: 0; transform: scale(1.26); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .rec-find, .rec-glow, .rec-halo { animation: none; }
+      .rec-find { transform: translateX(83px); opacity: .92; }
+      .rec-glow, .rec-halo { opacity: 0; }
+    }
+  </style>
+
+  <defs>
+    <linearGradient id="recLeaf" x1="36" y1="52" x2="220" y2="226" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2cc9b5"/>
+      <stop offset="0.42" stop-color="#109184"/>
+      <stop offset="1" stop-color="#0a4f4a"/>
+    </linearGradient>
+    <linearGradient id="recBand" x1="32" y1="56" x2="224" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0a524c" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#083f3a" stop-opacity="0.38"/>
+    </linearGradient>
+    <linearGradient id="recTab" x1="0" y1="30" x2="0" y2="72" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#14897e"/>
+      <stop offset="1" stop-color="#0a4f4a"/>
+    </linearGradient>
+    <radialGradient id="recGloss" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.58"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="recMark" x1="134" y1="145" x2="164" y2="175" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fcd34d"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+    <filter id="recSoft" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+    <clipPath id="recLeafClip">
+      <rect x="32" y="56" width="192" height="168" rx="32"/>
+    </clipPath>
+  </defs>
+
+  <!-- the two binding posts, drawn first so the leaf overlaps their feet -->
+  <rect x="76" y="28" width="21" height="46" rx="10.5" fill="url(#recTab)"/>
+  <rect x="159" y="28" width="21" height="46" rx="10.5" fill="url(#recTab)"/>
+
+  <!-- the calendar leaf -->
+  <rect x="32" y="56" width="192" height="168" rx="32" fill="url(#recLeaf)"/>
+
+  <g clip-path="url(#recLeafClip)">
+    <!-- the header band, where the month would be written -->
+    <rect x="32" y="56" width="192" height="48" fill="url(#recBand)"/>
+    <!-- static highlight across the shoulder: depth, not movement -->
+    <ellipse cx="84" cy="56" rx="104" ry="70" fill="url(#recGloss)"/>
+  </g>
+
+  <!-- the line under the month, and a hairline edge so the leaf keeps its
+       shape against a white page as well as a dark one -->
+  <path d="M32 104 H224" stroke="#ffffff" stroke-opacity="0.26" stroke-width="2"/>
+  <rect x="33" y="57" width="190" height="166" rx="31" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="2"/>
+
+  <!-- the days: three rows of four, read at a glance -->
+  <g fill="#ffffff" fill-opacity="0.46">
+    <circle cx="66" cy="128" r="9.5"/>
+    <circle cx="107" cy="128" r="9.5"/>
+    <circle cx="149" cy="128" r="9.5"/>
+    <circle cx="190" cy="128" r="9.5"/>
+
+    <circle cx="66" cy="160" r="9.5"/>
+    <circle cx="107" cy="160" r="9.5"/>
+    <circle cx="190" cy="160" r="9.5"/>
+
+    <circle cx="66" cy="192" r="9.5"/>
+    <circle cx="107" cy="192" r="9.5"/>
+    <circle cx="149" cy="192" r="9.5"/>
+    <circle cx="190" cy="192" r="9.5"/>
+  </g>
+
+  <!-- the day that has something on it -->
+  <circle class="rec-glow" cx="149" cy="160" r="27" fill="#fbbf24" opacity="0" filter="url(#recSoft)"/>
+  <circle class="rec-halo" cx="149" cy="160" r="20" fill="none" stroke="#fcd34d" stroke-opacity="0.6" stroke-width="2.5" opacity="0"/>
+  <circle cx="149" cy="160" r="12" fill="url(#recMark)"/>
+
+  <!-- the ring that finds it -->
+  <g class="rec-find">
+    <rect x="49" y="143" width="34" height="34" rx="12" fill="none"
+          stroke="#ffffff" stroke-width="3.5" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -1,0 +1,7 @@
+Event name,Date,Start time,End time,All day,Venue,Category,Notes,Status,Link
+Repair Café,03/04/2026,10:00,13:00,no,"Community Hall, 12 Market Street",Community,"Bring something broken; we will try to mend it, with tea.",,https://example.org/repair
+Spring Clean-up,2026-04-18,9:30 am,12:00 pm,no,"Riverside Park, Mill Lane",Community,Gloves and bags provided.,,
+Library Open Day,2026-05-02,,,yes,Riverside Library,Learning,"A day of readings, workshops and a book sale.",,
+Beginners' Coding,11/05/2026,18:30,20:00,no,"Riverside Studio, 4 Mill Lane",Learning;Community,"No experience needed, laptops provided.",,
+Summer Fete,2026-06-20,12:00,17:00,no,"Community Hall, 12 Market Street",Community,Cake. Lots of cake.,cancelled,
+Nothing Day,,,,,,,A row with no date at all.,,

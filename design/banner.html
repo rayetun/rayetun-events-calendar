@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RayEtun Events Calendar — banner</title>
+<style>
+	/*
+	 * The WordPress.org banner, designed once at 1544x500 and rendered to
+	 * both sizes by tools/render.js. Add ?z=0.5 for the 772x250 version.
+	 *
+	 * Everything here is sized for the SMALL one: WordPress.org shows the
+	 * 1544 file at 772 CSS pixels, so every size below is effectively halved
+	 * on screen. Nothing is set smaller than it can survive that.
+	 *
+	 * Composition. Left: who this is and what it does. Right: the thing
+	 * itself — a month with events on it — tilted a couple of degrees and
+	 * big enough to run off the top, the right and the bottom, so the only
+	 * edge you see is the leaning left one. A card that bleeds off three
+	 * sides reads as a window onto the product; a card floating inside the
+	 * frame reads as a screenshot someone dropped in.
+	 *
+	 * The Accessibility Guard then sits half on the card and half on the
+	 * gradient, tilted with the card so it lies on its surface. It is dark,
+	 * not white, because half of it is over white.
+	 *
+	 * THE GEOMETRY IS LOAD-BEARING. The card is rotated about its centre, so
+	 * the canvas edges cut it on a slope: at the left edge of the card the
+	 * visible band is local y 25..525, and at the canvas's right edge it is
+	 * y 61..561. Content therefore lives between y=70 (clear of the right-hand
+	 * cut) and y=520 (clear of the left-hand one). --pad-top buys the first.
+	 * Change the angle or the card box and both numbers move.
+	 */
+	:root {
+		--teal: #0f766e;
+		--amber: #f59e0b;
+		--amber-light: #fcd34d;
+		--ink: #10322f;
+		--muted: #5b7a76;
+		--line: #e4edec;
+		--tilt: -2.6deg;
+		--pad-top: 70px;
+	}
+
+	* { box-sizing: border-box; margin: 0; padding: 0; }
+
+	html, body { width: 1544px; height: 500px; overflow: hidden; }
+
+	body {
+		position: relative;
+		background:
+			radial-gradient(980px 660px at 6% -34%, rgba(94, 234, 212, 0.40), transparent 62%),
+			radial-gradient(820px 560px at 98% 124%, rgba(5, 48, 45, 0.78), transparent 60%),
+			linear-gradient(118deg, #0e706a 0%, #0f766e 36%, #093f3b 100%);
+		font-family: "Segoe UI", -apple-system, system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+		color: #fff;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	/* A whisper of a grid behind everything: a calendar, without saying so. */
+	.weave {
+		position: absolute;
+		inset: 0;
+		background-image:
+			linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+			linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+		background-size: 68px 68px;
+		mask-image: radial-gradient(660px 460px at 17% 46%, #000 8%, transparent 74%);
+		-webkit-mask-image: radial-gradient(660px 460px at 17% 46%, #000 8%, transparent 74%);
+	}
+
+	/* Light spilling from behind the card, so its edge is lit, not pasted. */
+	.spill {
+		position: absolute;
+		left: 560px; top: -180px;
+		width: 760px; height: 860px;
+		background: radial-gradient(closest-side, rgba(94, 234, 212, 0.30), transparent 72%);
+		filter: blur(10px);
+	}
+
+	/* ---------------------------------------------------------------- left */
+
+	.say {
+		position: absolute;
+		left: 80px;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 470px;
+	}
+
+	.eyebrow {
+		display: flex;
+		align-items: center;
+		gap: 15px;
+		margin-bottom: 18px;
+	}
+	.eyebrow img { width: 54px; height: 54px; display: block; }
+	.eyebrow span {
+		font-size: 22px;
+		font-weight: 600;
+		letter-spacing: 0.3em;
+		text-transform: uppercase;
+		color: rgba(255, 255, 255, 0.78);
+	}
+
+	h1 {
+		font-size: 76px;
+		line-height: 0.98;
+		font-weight: 700;
+		letter-spacing: -0.03em;
+	}
+	h1 span { display: block; }
+
+	.lede {
+		margin-top: 22px;
+		font-size: 27px;
+		line-height: 1.4;
+		color: rgba(255, 255, 255, 0.92);
+	}
+	.lede b { font-weight: 700; color: #fff; }
+
+	.chips { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 28px; }
+	.chip {
+		display: flex;
+		align-items: center;
+		gap: 9px;
+		padding: 9px 17px;
+		border-radius: 999px;
+		border: 1.5px solid rgba(255, 255, 255, 0.32);
+		background: rgba(255, 255, 255, 0.11);
+		font-size: 18px;
+		font-weight: 600;
+		color: rgba(255, 255, 255, 0.96);
+		white-space: nowrap;
+	}
+	.chip.hot {
+		border-color: rgba(252, 211, 77, 0.6);
+		background: rgba(252, 211, 77, 0.18);
+		color: var(--amber-light);
+	}
+	.chip svg { width: 20px; height: 20px; display: block; }
+
+	/* --------------------------------------------------------------- right */
+
+	.card {
+		position: absolute;
+		left: 755px;
+		top: -48px;
+		width: 1010px;
+		height: 600px;
+		padding-top: var(--pad-top);
+		transform: rotate(var(--tilt));
+		background: #fff;
+		border-radius: 26px;
+		box-shadow:
+			-46px 30px 110px rgba(2, 24, 22, 0.46),
+			0 0 0 1px rgba(255, 255, 255, 0.5);
+		overflow: hidden;
+		color: var(--ink);
+	}
+
+	.card__bar {
+		display: flex;
+		align-items: center;
+		gap: 18px;
+		height: 74px;
+		padding: 0 220px 0 30px;
+		border-bottom: 1px solid var(--line);
+	}
+	.month { font-size: 26px; font-weight: 700; letter-spacing: -0.012em; }
+	.arrows { display: flex; gap: 8px; }
+	.arrows i {
+		width: 34px; height: 34px;
+		border: 1.5px solid var(--line);
+		border-radius: 9px;
+		display: grid; place-items: center;
+		font-style: normal; font-size: 18px; color: var(--muted);
+	}
+	.views { margin-inline-start: auto; display: flex; gap: 6px; }
+	.views b, .views span {
+		font-size: 18px;
+		padding: 8px 17px;
+		border-radius: 9px;
+		font-weight: 600;
+	}
+	.views b { background: var(--teal); color: #fff; }
+	.views span { color: var(--muted); font-weight: 500; }
+
+	table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+	th {
+		height: 46px;
+		font-size: 16px;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--muted);
+		padding: 0 0 0 17px;
+		text-align: start;
+		vertical-align: middle;
+	}
+	td {
+		height: 110px;
+		border-top: 1px solid var(--line);
+		border-inline-start: 1px solid var(--line);
+		vertical-align: top;
+		padding: 9px 11px;
+	}
+	td:first-child { border-inline-start: 0; }
+	.num { font-size: 17px; font-weight: 600; color: var(--muted); }
+	td.today .num {
+		background: var(--teal);
+		color: #fff;
+		border-radius: 999px;
+		width: 30px; height: 30px;
+		display: inline-grid; place-items: center;
+		font-size: 16px;
+	}
+
+	.ev {
+		display: block;
+		margin-top: 7px;
+		padding: 6px 9px;
+		border-radius: 7px;
+		font-size: 15px;
+		font-weight: 600;
+		line-height: 1.2;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		border-inline-start: 3.5px solid var(--teal);
+		background: rgba(15, 118, 110, 0.1);
+		color: #0c5a54;
+	}
+	.ev.amber { border-inline-start-color: var(--amber); background: rgba(245, 158, 11, 0.15); color: #8a5a06; }
+	.ev.plum  { border-inline-start-color: #7c5cff; background: rgba(124, 92, 255, 0.12); color: #4b33c4; }
+	.more { display: block; margin-top: 6px; font-size: 14.5px; font-weight: 700; color: var(--teal); }
+
+	/* ------------------------------------- the Guard, lying across the edge */
+
+	.guard {
+		position: absolute;
+		left: 560px;
+		top: 322px;
+		width: 450px;
+		display: flex;
+		align-items: center;
+		gap: 17px;
+		padding: 19px 26px;
+		border-radius: 20px;
+		transform: rotate(var(--tilt));
+		background: linear-gradient(135deg, #0c3d39 0%, #072c29 100%);
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		box-shadow:
+			0 26px 60px rgba(2, 20, 19, 0.5),
+			0 2px 0 rgba(255, 255, 255, 0.07) inset;
+	}
+	.guard .badge {
+		width: 48px; height: 48px;
+		border-radius: 14px;
+		background: rgba(74, 222, 128, 0.16);
+		border: 1px solid rgba(74, 222, 128, 0.3);
+		display: grid; place-items: center;
+		flex: none;
+	}
+	.guard .badge svg { width: 27px; height: 27px; display: block; color: #4ade80; }
+	.guard .t {
+		font-size: 15px;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: rgba(255, 255, 255, 0.62);
+	}
+	.guard .v {
+		font-size: 23px;
+		font-weight: 700;
+		margin-top: 3px;
+		white-space: nowrap;
+		color: #fff;
+	}
+	.guard .v em { font-style: normal; color: #4ade80; }
+</style>
+</head>
+<body>
+<div class="weave"></div>
+<div class="spill"></div>
+
+<div class="card">
+	<div class="card__bar">
+		<div class="month">November 2026</div>
+		<div class="arrows"><i>‹</i><i>›</i></div>
+		<div class="views"><b>Month</b><span>Week</span><span>Day</span><span>List</span></div>
+	</div>
+	<table>
+		<thead>
+			<tr><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th></tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td><span class="num">9</span></td>
+				<td><span class="num">10</span><span class="ev">6pm Yoga</span></td>
+				<td><span class="num">11</span></td>
+				<td><span class="num">12</span><span class="ev">6pm Yoga</span></td>
+				<td><span class="num">13</span><span class="ev amber">Market day</span></td>
+				<td><span class="num">14</span></td>
+				<td><span class="num">15</span></td>
+			</tr>
+			<tr>
+				<td class="today"><span class="num">16</span><span class="ev plum">Screen readers</span></td>
+				<td><span class="num">17</span><span class="ev">6pm Yoga</span><span class="more">+ 2 more</span></td>
+				<td><span class="num">18</span><span class="ev amber">Volunteers</span></td>
+				<td><span class="num">19</span><span class="ev">6pm Yoga</span></td>
+				<td><span class="num">20</span><span class="ev plum">Choir practice</span></td>
+				<td><span class="num">21</span></td>
+				<td><span class="num">22</span></td>
+			</tr>
+			<tr>
+				<td><span class="num">23</span><span class="ev amber">Repair café</span></td>
+				<td><span class="num">24</span><span class="ev">6pm Yoga</span></td>
+				<td><span class="num">25</span></td>
+				<td><span class="num">26</span><span class="ev">6pm Yoga</span></td>
+				<td><span class="num">27</span><span class="ev plum">Winter fair</span></td>
+				<td><span class="num">28</span></td>
+				<td><span class="num">29</span></td>
+			</tr>
+		</tbody>
+	</table>
+</div>
+
+<div class="guard">
+	<div class="badge">
+		<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+			<circle cx="12" cy="4" r="2.2" fill="currentColor"/>
+			<path d="M5 8h14M12 8v6M12 14l-3.5 6M12 14l3.5 6" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+		</svg>
+	</div>
+	<div>
+		<div class="t">Accessibility Guard</div>
+		<div class="v"><em>100</em> / 100 &mdash; nothing to flag</div>
+	</div>
+</div>
+
+<div class="say">
+	<div class="eyebrow">
+		<img src="../.wordpress-org/icon.svg" alt="">
+		<span>RayEtun</span>
+	</div>
+	<h1><span>Events</span><span>Calendar</span></h1>
+	<p class="lede">
+		Accessible by default. <b>Recurring events</b> written the way
+		you say them.
+	</p>
+	<div class="chips">
+		<div class="chip hot">
+			<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+				<circle cx="12" cy="4" r="2.2" fill="currentColor"/>
+				<path d="M5 8h14M12 8v6M12 14l-3.5 6M12 14l3.5 6" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/>
+			</svg>
+			21 accessibility checks
+		</div>
+	</div>
+</div>
+
+<script>
+	// tools/render.js passes ?z=0.5 for the 772x250 banner.
+	var z = new URLSearchParams( location.search ).get( 'z' );
+	if ( z ) {
+		document.documentElement.style.zoom = z;
+	}
+</script>
+</body>
+</html>

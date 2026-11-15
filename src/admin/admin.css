@@ -1,0 +1,2704 @@
+/**
+ * RayEtun Events Calendar — dashboard.
+ *
+ * Tokens live on the screen's <body> so modals and popovers (rendered in
+ * portals) share them. White-labelling is a token swap.
+ */
+
+body.rayec-app-screen {
+	--rayec-primary: #0f766e;
+	--rayec-primary-strong: #115e59;
+	--rayec-tint: #e6f4f1;
+	--rayec-amber: #f59e0b;
+	--rayec-amber-text: #b45309;
+	--rayec-ink: #10231f;
+
+	--rayec-nav-bg: #0b2f2b;
+	--rayec-nav-active: #14524b;
+	--rayec-nav-text: #b9d6d1;
+
+	--rayec-canvas: #f4f7f6;
+	--rayec-surface: #ffffff;
+	--rayec-border: #e2e8e6;
+	--rayec-text: #10231f;
+	--rayec-body: #4a5c58;
+	--rayec-muted: #64756f;
+	--rayec-danger: #b42318;
+	--rayec-good: #067647;
+	--rayec-good-bg: #e7f6ee;
+	--rayec-fair-bg: #fef3d7;
+	--rayec-poor-bg: #fde8e6;
+
+	--rayec-radius: 16px;
+	--rayec-radius-sm: 10px;
+	--rayec-shadow: 0 1px 2px rgba(16, 35, 31, 0.04), 0 1px 3px rgba(16, 35, 31, 0.06);
+
+	--wp-admin-theme-color: var(--rayec-primary);
+	--wp-admin-theme-color--rgb: 15, 118, 110;
+	--wp-admin-theme-color-darker-10: var(--rayec-primary-strong);
+	--wp-admin-theme-color-darker-10--rgb: 17, 94, 89;
+	--wp-admin-theme-color-darker-20: #0d4a46;
+	--wp-components-color-accent: var(--rayec-primary);
+	--wp-components-color-accent-darker-10: var(--rayec-primary-strong);
+	--wp-components-color-accent-darker-20: #0d4a46;
+}
+
+body.rayec-app-screen[data-rayec-theme="dark"] {
+	--rayec-primary: #5eead4;
+	--rayec-primary-strong: #99f6e4;
+	--rayec-tint: #12403a;
+	--rayec-amber-text: #fbbf24;
+	--rayec-nav-bg: #071614;
+	--rayec-nav-active: #12403a;
+	--rayec-canvas: #0b1f1d;
+	--rayec-surface: #112b28;
+	--rayec-border: #1f423d;
+	--rayec-text: #ecf7f5;
+	--rayec-body: #c2d6d2;
+	--rayec-muted: #9db5b0;
+	--rayec-danger: #fda29b;
+	--rayec-good: #75e0a7;
+	--rayec-good-bg: #0e3a26;
+	--rayec-fair-bg: #4a3505;
+	--rayec-poor-bg: #55160c;
+	--wp-admin-theme-color--rgb: 94, 234, 212;
+	--wp-admin-theme-color-darker-20: #ccfbf1;
+	--wp-components-color-accent-darker-20: #ccfbf1;
+	--wp-components-color-accent-inverted: #0b1f1d;
+	--wp-components-color-background: #112b28;
+	--wp-components-color-foreground: #ecf7f5;
+	--wp-components-color-foreground-inverted: #0b1f1d;
+	--wp-components-color-gray-100: #17332f;
+	--wp-components-color-gray-200: #1f423d;
+	--wp-components-color-gray-300: #2c5650;
+	--wp-components-color-gray-400: #3d6b65;
+	--wp-components-color-gray-600: #7fa39c;
+	--wp-components-color-gray-700: #9db5b0;
+	--wp-components-color-gray-800: #c2d6d2;
+	color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+	body.rayec-app-screen[data-rayec-theme="auto"] {
+		--rayec-primary: #5eead4;
+		--rayec-primary-strong: #99f6e4;
+		--rayec-tint: #12403a;
+		--rayec-amber-text: #fbbf24;
+		--rayec-nav-bg: #071614;
+		--rayec-nav-active: #12403a;
+		--rayec-canvas: #0b1f1d;
+		--rayec-surface: #112b28;
+		--rayec-border: #1f423d;
+		--rayec-text: #ecf7f5;
+		--rayec-body: #c2d6d2;
+		--rayec-muted: #9db5b0;
+		--rayec-danger: #fda29b;
+		--rayec-good: #75e0a7;
+		--rayec-good-bg: #0e3a26;
+		--rayec-fair-bg: #4a3505;
+		--rayec-poor-bg: #55160c;
+		--wp-admin-theme-color--rgb: 94, 234, 212;
+		--wp-admin-theme-color-darker-20: #ccfbf1;
+		--wp-components-color-accent-darker-20: #ccfbf1;
+		--wp-components-color-accent-inverted: #0b1f1d;
+		--wp-components-color-background: #112b28;
+		--wp-components-color-foreground: #ecf7f5;
+		--wp-components-color-foreground-inverted: #0b1f1d;
+		--wp-components-color-gray-100: #17332f;
+		--wp-components-color-gray-200: #1f423d;
+		--wp-components-color-gray-300: #2c5650;
+		--wp-components-color-gray-400: #3d6b65;
+		--wp-components-color-gray-600: #7fa39c;
+		--wp-components-color-gray-700: #9db5b0;
+		--wp-components-color-gray-800: #c2d6d2;
+		color-scheme: dark;
+	}
+}
+
+/* Take the whole admin canvas. */
+body.rayec-app-screen #wpcontent {
+	padding-left: 0;
+}
+
+body.rayec-app-screen #wpbody-content {
+	padding-bottom: 0;
+}
+
+body.rayec-app-screen #wpfooter {
+	display: none;
+}
+
+body.rayec-app-screen {
+	background: var(--rayec-canvas);
+}
+
+.rayec-admin {
+	color: var(--rayec-text);
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+	font-size: 14px;
+}
+
+.rayec-admin *,
+.rayec-drawer * {
+	box-sizing: border-box;
+}
+
+.rayec-shell {
+	display: grid;
+	grid-template-columns: 224px minmax(0, 1fr);
+	min-height: calc(100vh - 32px);
+	background: var(--rayec-canvas);
+}
+
+.rayec-icon {
+	flex: 0 0 auto;
+}
+
+/* Sidebar */
+.rayec-side {
+	display: flex;
+	flex-direction: column;
+	padding: 24px 14px;
+	background: var(--rayec-nav-bg);
+}
+
+.rayec-side__brand {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 24px;
+	padding: 0 8px;
+	color: #fff;
+}
+
+.rayec-side__logo {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 34px;
+	height: 34px;
+	border-radius: 10px;
+	background: #0f766e;
+	color: #fff;
+}
+
+.rayec-side__name {
+	font-size: 16px;
+	font-weight: 700;
+}
+
+.rayec-side__badge {
+	padding: 2px 8px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.14);
+	font-size: 11px;
+	font-weight: 600;
+}
+
+.rayec-side__nav {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-side__nav li {
+	margin: 0 0 2px;
+}
+
+.rayec-admin .rayec-side a {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 12px;
+	border-radius: 10px;
+	color: var(--rayec-nav-text);
+	font-size: 14px;
+	font-weight: 500;
+	text-decoration: none;
+}
+
+.rayec-admin .rayec-side a:hover {
+	background: rgba(255, 255, 255, 0.07);
+	color: #fff;
+}
+
+.rayec-admin .rayec-side a.is-active {
+	background: var(--rayec-nav-active);
+	color: #fff;
+	box-shadow: inset 3px 0 0 var(--rayec-amber);
+}
+
+.rayec-admin .rayec-side a:focus-visible {
+	outline: 2px solid #5eead4;
+	outline-offset: 2px;
+	box-shadow: none;
+}
+
+.rayec-side__foot {
+	margin-top: auto;
+	padding-top: 24px;
+}
+
+/* Main */
+.rayec-main {
+	min-width: 0;
+	padding: 20px 32px 48px;
+}
+
+.rayec-topbar {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 10px;
+	margin-bottom: 20px;
+}
+
+.rayec-topbar .components-button {
+	gap: 6px;
+	border-radius: var(--rayec-radius-sm);
+}
+
+.rayec-theme-toggle.components-button {
+	color: var(--rayec-body);
+}
+
+.rayec-admin .components-button.is-primary,
+.rayec-drawer .components-button.is-primary {
+	border-radius: var(--rayec-radius-sm);
+	font-weight: 600;
+}
+
+.rayec-admin .components-button.is-secondary,
+.rayec-drawer .components-button.is-secondary {
+	border-radius: var(--rayec-radius-sm);
+}
+
+/* The help line under a control. @wordpress/components paints it #757575,
+   which is 4.6:1 on white and 3.25:1 on this dashboard's dark surface, so it
+   fails WCAG 1.4.3 in the dark theme. The token is right in both. */
+.rayec-admin .components-base-control__help,
+.rayec-admin .components-checkbox-control__help,
+.rayec-admin .components-toggle-control__help,
+.rayec-drawer .components-base-control__help,
+.rayec-drawer .components-checkbox-control__help,
+.rayec-drawer .components-toggle-control__help,
+.rayec-setup .components-base-control__help,
+.rayec-setup .components-checkbox-control__help {
+	color: var(--rayec-muted);
+}
+
+.rayec-admin a,
+.rayec-drawer a {
+	color: var(--rayec-primary);
+}
+
+.rayec-admin a:focus-visible,
+.rayec-admin button:focus-visible,
+.rayec-drawer a:focus-visible {
+	outline: 2px solid var(--rayec-primary);
+	outline-offset: 2px;
+	box-shadow: none;
+}
+
+.rayec-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	margin-bottom: 20px;
+}
+
+.rayec-head__title {
+	margin: 0 0 4px;
+	padding: 0;
+	color: var(--rayec-text);
+	font-size: 26px;
+	font-weight: 700;
+	line-height: 1.2;
+}
+
+.rayec-head__sub {
+	margin: 0;
+	color: var(--rayec-body);
+	font-size: 14px;
+}
+
+.rayec-muted {
+	margin: 0;
+	color: var(--rayec-muted);
+	font-size: 13px;
+}
+
+.rayec-loading,
+.rayec-error {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	padding: 24px 0;
+	color: var(--rayec-body);
+}
+
+.rayec-error {
+	padding: 12px 14px;
+	border: 1px solid var(--rayec-danger);
+	border-radius: var(--rayec-radius-sm);
+	color: var(--rayec-danger);
+}
+
+/* Welcome banner */
+.rayec-welcome {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	margin-bottom: 20px;
+	padding: 24px 28px;
+	border-radius: var(--rayec-radius);
+	background: linear-gradient(120deg, #0f766e 0%, #115e59 55%, #134e4a 100%);
+	color: #fff;
+}
+
+.rayec-welcome__title {
+	margin: 0 0 4px;
+	padding: 0;
+	color: #fff;
+	font-size: 22px;
+	font-weight: 700;
+	line-height: 1.25;
+}
+
+.rayec-welcome__sub {
+	margin: 0;
+	color: #d5ebe7;
+	font-size: 14px;
+}
+
+.rayec-admin a.rayec-welcome__btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 9px 16px;
+	border: 1.5px solid rgba(255, 255, 255, 0.45);
+	border-radius: var(--rayec-radius-sm);
+	background: rgba(255, 255, 255, 0.12);
+	color: #fff;
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.rayec-admin a.rayec-welcome__btn:hover {
+	background: rgba(255, 255, 255, 0.22);
+}
+
+.rayec-admin a.rayec-welcome__btn:focus-visible {
+	outline-color: #fff;
+}
+
+/* Stat tiles */
+.rayec-stats {
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	gap: 14px;
+	margin-bottom: 20px;
+}
+
+.rayec-admin a.rayec-stat {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 16px 18px;
+	border: 1px solid var(--rayec-border);
+	border-radius: var(--rayec-radius);
+	background: var(--rayec-surface);
+	box-shadow: var(--rayec-shadow);
+	color: var(--rayec-text);
+	text-decoration: none;
+}
+
+.rayec-admin a.rayec-stat:hover {
+	border-color: var(--rayec-primary);
+}
+
+.rayec-stat__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
+	border-radius: 12px;
+}
+
+.rayec-stat__icon--teal {
+	background: #e6f4f1;
+	color: #0f766e;
+}
+
+.rayec-stat__icon--amber {
+	background: #fef3d7;
+	color: #b45309;
+}
+
+.rayec-stat__icon--indigo {
+	background: #eef2ff;
+	color: #4338ca;
+}
+
+.rayec-stat__icon--rose {
+	background: #fff1f2;
+	color: #be123c;
+}
+
+.rayec-stat__icon--slate {
+	background: #eef2f6;
+	color: #475569;
+}
+
+.rayec-stat__num {
+	display: block;
+	font-size: 22px;
+	font-weight: 700;
+	line-height: 1.1;
+}
+
+.rayec-stat__label {
+	display: block;
+	margin-top: 2px;
+	color: var(--rayec-muted);
+	font-size: 12px;
+}
+
+/* Layout + panels */
+.rayec-cols {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 340px;
+	gap: 20px;
+	align-items: start;
+}
+
+.rayec-cols__main,
+.rayec-cols__side {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	min-width: 0;
+}
+
+.rayec-panel {
+	border: 1px solid var(--rayec-border);
+	border-radius: var(--rayec-radius);
+	background: var(--rayec-surface);
+	box-shadow: var(--rayec-shadow);
+}
+
+.rayec-main > .rayec-panel {
+	margin-bottom: 20px;
+}
+
+.rayec-panel__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 14px 20px;
+	border-bottom: 1px solid var(--rayec-border);
+}
+
+.rayec-panel__title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	color: var(--rayec-text);
+	font-size: 14px;
+	font-weight: 700;
+}
+
+.rayec-panel__title .rayec-icon {
+	color: var(--rayec-muted);
+}
+
+.rayec-panel__body {
+	padding: 18px 20px;
+}
+
+/* Occurrence rows */
+.rayec-occ-list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-occ {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 0;
+	padding: 10px 0;
+	border-bottom: 1px solid var(--rayec-border);
+}
+
+.rayec-occ:last-child {
+	border-bottom: 0;
+	padding-bottom: 0;
+}
+
+.rayec-occ:first-child {
+	padding-top: 0;
+}
+
+.rayec-occ__dot {
+	flex: 0 0 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: var(--rayec-primary);
+}
+
+.rayec-occ__main {
+	flex: 1;
+	min-width: 0;
+	padding: 2px 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	text-align: start;
+	cursor: pointer;
+}
+
+.rayec-occ__title {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--rayec-text);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.rayec-occ__main:hover .rayec-occ__title {
+	color: var(--rayec-primary);
+	text-decoration: underline;
+}
+
+.rayec-occ__repeat {
+	display: inline-flex;
+	color: var(--rayec-muted);
+}
+
+.rayec-occ__meta {
+	display: block;
+	margin-top: 2px;
+	color: var(--rayec-muted);
+	font-size: 12.5px;
+}
+
+/* Badges and pills */
+.rayec-badge,
+.rayec-pill {
+	display: inline-block;
+	padding: 2px 9px;
+	border-radius: 999px;
+	font-size: 11.5px;
+	font-weight: 600;
+	line-height: 1.5;
+	white-space: nowrap;
+}
+
+.rayec-badge--muted {
+	background: var(--rayec-canvas);
+	border: 1px solid var(--rayec-border);
+	color: var(--rayec-body);
+}
+
+.rayec-badge--warn,
+.rayec-pill.is-fair {
+	background: var(--rayec-fair-bg);
+	color: var(--rayec-amber-text);
+}
+
+.rayec-pill.is-good {
+	background: var(--rayec-good-bg);
+	color: var(--rayec-good);
+}
+
+.rayec-pill.is-poor {
+	background: var(--rayec-poor-bg);
+	color: var(--rayec-danger);
+}
+
+/* Accessibility Guard */
+.rayec-score {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 6px;
+	margin-bottom: 10px;
+}
+
+.rayec-score__num {
+	font-size: 34px;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.rayec-score__num.is-good {
+	color: var(--rayec-good);
+}
+
+.rayec-score__num.is-fair {
+	color: var(--rayec-amber-text);
+}
+
+.rayec-score__num.is-poor {
+	color: var(--rayec-danger);
+}
+
+.rayec-score__of {
+	color: var(--rayec-muted);
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.rayec-score__label {
+	flex-basis: 100%;
+	color: var(--rayec-muted);
+	font-size: 12.5px;
+}
+
+.rayec-meter {
+	height: 8px;
+	margin-bottom: 14px;
+	border-radius: 999px;
+	background: var(--rayec-border);
+	overflow: hidden;
+}
+
+.rayec-meter__fill {
+	display: block;
+	height: 100%;
+	border-radius: 999px;
+	background: var(--rayec-good);
+}
+
+.rayec-meter__fill.is-fair {
+	background: var(--rayec-amber);
+}
+
+.rayec-meter__fill.is-poor {
+	background: var(--rayec-danger);
+}
+
+.rayec-flagged,
+.rayec-guard__list,
+.rayec-checklist {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-flagged li {
+	margin: 0;
+	border-top: 1px solid var(--rayec-border);
+}
+
+.rayec-flagged button {
+	display: block;
+	width: 100%;
+	padding: 10px 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	text-align: start;
+	cursor: pointer;
+}
+
+.rayec-flagged__title {
+	display: block;
+	color: var(--rayec-text);
+	font-weight: 600;
+}
+
+.rayec-flagged button:hover .rayec-flagged__title {
+	color: var(--rayec-primary);
+	text-decoration: underline;
+}
+
+.rayec-flagged__issue {
+	display: block;
+	margin-top: 2px;
+	color: var(--rayec-muted);
+	font-size: 12.5px;
+}
+
+.rayec-allclear {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	color: var(--rayec-good);
+	font-weight: 600;
+}
+
+.rayec-guard__list li {
+	display: flex;
+	gap: 8px;
+	margin: 0 0 8px;
+	color: var(--rayec-body);
+}
+
+.rayec-guard__list li.is-error .rayec-icon {
+	color: var(--rayec-danger);
+}
+
+.rayec-guard__list li.is-warning .rayec-icon {
+	color: var(--rayec-amber-text);
+}
+
+.rayec-guard__list li.is-note .rayec-icon {
+	color: var(--rayec-muted);
+}
+
+/* What to do about it, under what is wrong. */
+.rayec-guard__fix {
+	display: block;
+	margin-top: 2px;
+	color: var(--rayec-muted);
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.rayec-guard__score {
+	margin-inline-start: auto;
+	color: var(--rayec-muted);
+	font-size: 13px;
+}
+
+/* Checklist */
+.rayec-checklist li {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 0;
+	padding: 9px 0;
+	border-bottom: 1px solid var(--rayec-border);
+}
+
+.rayec-checklist li:last-child {
+	border-bottom: 0;
+}
+
+.rayec-checklist__mark {
+	display: inline-flex;
+	flex: 0 0 22px;
+	align-items: center;
+	justify-content: center;
+	height: 22px;
+	border: 2px solid var(--rayec-border);
+	border-radius: 50%;
+}
+
+.rayec-checklist li.is-done .rayec-checklist__mark {
+	border-color: var(--rayec-good);
+	background: var(--rayec-good);
+	color: var(--rayec-surface);
+}
+
+.rayec-checklist__label {
+	flex: 1;
+	color: var(--rayec-text);
+	font-weight: 500;
+}
+
+.rayec-checklist li.is-done .rayec-checklist__label {
+	color: var(--rayec-muted);
+}
+
+.rayec-checklist__sample {
+	margin: 12px 0 0;
+	color: var(--rayec-muted);
+	font-size: 13px;
+}
+
+/* Empty states */
+.rayec-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 36px 20px;
+	text-align: center;
+}
+
+.rayec-empty__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 56px;
+	height: 56px;
+	border-radius: 50%;
+	background: var(--rayec-tint);
+	color: var(--rayec-primary);
+}
+
+.rayec-empty__title {
+	margin: 4px 0 0;
+	color: var(--rayec-text);
+	font-size: 16px;
+	font-weight: 700;
+}
+
+.rayec-empty__text {
+	max-width: 46ch;
+	margin: 0 0 6px;
+	color: var(--rayec-body);
+}
+
+/* Toolbar, tabs, search */
+.rayec-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 16px;
+}
+
+.rayec-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.rayec-tabs button {
+	min-height: 36px;
+	padding: 6px 14px;
+	border: 1px solid var(--rayec-border);
+	border-radius: 999px;
+	background: var(--rayec-surface);
+	color: var(--rayec-body);
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.rayec-tabs button:hover {
+	border-color: var(--rayec-primary);
+	color: var(--rayec-primary);
+}
+
+.rayec-tabs button.is-active {
+	border-color: var(--rayec-primary);
+	background: var(--rayec-primary);
+	color: var(--rayec-surface);
+}
+
+.rayec-search {
+	flex: 0 1 300px;
+}
+
+.rayec-search--settings {
+	max-width: 360px;
+	margin-bottom: 16px;
+}
+
+/* Table */
+.rayec-table-wrap {
+	overflow-x: auto;
+}
+
+.rayec-table-wrap.is-loading {
+	opacity: 0.6;
+}
+
+.rayec-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.rayec-table th,
+.rayec-table td {
+	padding: 13px 20px;
+	border-bottom: 1px solid var(--rayec-border);
+	color: var(--rayec-body);
+	font-size: 13.5px;
+	font-weight: 400;
+	text-align: start;
+	vertical-align: middle;
+}
+
+.rayec-table thead th {
+	color: var(--rayec-muted);
+	font-size: 11.5px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.rayec-table tbody tr:last-child th,
+.rayec-table tbody tr:last-child td {
+	border-bottom: 0;
+}
+
+.rayec-table__title {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--rayec-text);
+	font-size: 14px;
+	font-weight: 600;
+	text-align: start;
+	cursor: pointer;
+}
+
+.rayec-table__title:hover {
+	color: var(--rayec-primary);
+	text-decoration: underline;
+}
+
+.rayec-table__sub {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	margin-top: 3px;
+	color: var(--rayec-muted);
+	font-size: 12.5px;
+}
+
+.rayec-table__actions {
+	width: 48px;
+	text-align: end;
+}
+
+.rayec-pager {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 14px;
+	margin-top: 16px;
+	color: var(--rayec-body);
+}
+
+/* Cards (venues) */
+.rayec-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: 16px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-card {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: 0;
+	padding: 20px;
+	border: 1px solid var(--rayec-border);
+	border-radius: var(--rayec-radius);
+	background: var(--rayec-surface);
+	box-shadow: var(--rayec-shadow);
+}
+
+.rayec-card__title {
+	margin: 0;
+	padding: 0;
+	color: var(--rayec-text);
+	font-size: 16px;
+	font-weight: 700;
+}
+
+.rayec-card__desc {
+	margin: 0;
+	color: var(--rayec-body);
+}
+
+.rayec-card__warn {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin: 0;
+	color: var(--rayec-amber-text);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.rayec-card__foot {
+	display: flex;
+	gap: 8px;
+	margin-top: auto;
+	padding-top: 10px;
+}
+
+.rayec-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-tags li {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin: 0;
+	padding: 3px 10px;
+	border-radius: 999px;
+	background: var(--rayec-tint);
+	color: var(--rayec-primary-strong);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+/* Planner */
+.rayec-planner {
+	border: 1px solid var(--rayec-border);
+	border-radius: var(--rayec-radius);
+	background: var(--rayec-surface);
+	box-shadow: var(--rayec-shadow);
+	overflow: hidden;
+}
+
+.rayec-planner__bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 14px 20px;
+}
+
+.rayec-planner__month {
+	margin: 0;
+	padding: 0;
+	color: var(--rayec-text);
+	font-size: 18px;
+	font-weight: 700;
+}
+
+.rayec-planner__nav {
+	display: flex;
+	gap: 6px;
+}
+
+.rayec-planner__empty {
+	margin: 0;
+	padding: 16px 20px;
+	border-top: 1px solid var(--rayec-border);
+	color: var(--rayec-muted);
+	text-align: center;
+}
+
+.rayec-board {
+	width: 100%;
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+
+.rayec-board th {
+	padding: 8px 10px;
+	border-top: 1px solid var(--rayec-border);
+	border-bottom: 1px solid var(--rayec-border);
+	color: var(--rayec-muted);
+	font-size: 11.5px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-align: start;
+	text-transform: uppercase;
+}
+
+.rayec-board th abbr {
+	text-decoration: none;
+}
+
+.rayec-board td {
+	height: 118px;
+	padding: 6px;
+	border-right: 1px solid var(--rayec-border);
+	border-bottom: 1px solid var(--rayec-border);
+	vertical-align: top;
+}
+
+.rayec-board td:last-child {
+	border-right: 0;
+}
+
+.rayec-board tr:last-child td {
+	border-bottom: 0;
+}
+
+.rayec-board td.is-outside {
+	background: var(--rayec-canvas);
+}
+
+.rayec-board td.is-outside .rayec-board__num {
+	color: var(--rayec-muted);
+}
+
+.rayec-board td.is-drop {
+	background: var(--rayec-tint);
+	box-shadow: inset 0 0 0 2px var(--rayec-primary);
+}
+
+.rayec-board__day {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 4px;
+}
+
+.rayec-board__num {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 26px;
+	height: 26px;
+	border-radius: 999px;
+	color: var(--rayec-text);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.rayec-board td.is-today .rayec-board__num {
+	background: var(--rayec-primary);
+	color: var(--rayec-surface);
+}
+
+.rayec-board__add {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	background: none;
+	color: var(--rayec-muted);
+	cursor: pointer;
+	opacity: 0;
+}
+
+.rayec-board td:hover .rayec-board__add,
+.rayec-board__add:focus-visible {
+	opacity: 1;
+}
+
+.rayec-board__add:hover {
+	border-color: var(--rayec-primary);
+	color: var(--rayec-primary);
+}
+
+.rayec-board__events {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-pchip {
+	--rayec-chip: var(--rayec-primary);
+	display: flex;
+	align-items: stretch;
+	margin: 0;
+	border-inline-start: 3px solid var(--rayec-chip);
+	border-radius: 6px;
+	background: color-mix(in srgb, var(--rayec-chip) 13%, var(--rayec-surface));
+}
+
+.rayec-pchip[draggable="true"] {
+	cursor: grab;
+}
+
+.rayec-pchip.is-draft {
+	border-inline-start-style: dashed;
+	background: var(--rayec-canvas);
+}
+
+.rayec-pchip.is-cancelled .rayec-pchip__title {
+	text-decoration: line-through;
+}
+
+.rayec-pchip__main {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	gap: 5px;
+	min-width: 0;
+	padding: 4px 6px;
+	border: 0;
+	background: none;
+	color: var(--rayec-text);
+	font-size: 12px;
+	line-height: 1.3;
+	text-align: start;
+	cursor: pointer;
+}
+
+.rayec-pchip__time {
+	flex: 0 0 auto;
+	font-weight: 700;
+}
+
+.rayec-pchip__title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.rayec-pchip__main:hover .rayec-pchip__title {
+	text-decoration: underline;
+}
+
+.rayec-pchip__menu .components-button {
+	min-width: 22px;
+	width: 22px;
+	height: 100%;
+	min-height: 24px;
+	padding: 0;
+	color: var(--rayec-body);
+}
+
+/* Planner: month / week switch */
+.rayec-seg {
+	display: inline-flex;
+	margin-inline-start: auto;
+	padding: 3px;
+	border: 1px solid var(--rayec-border);
+	border-radius: 10px;
+	background: var(--rayec-canvas);
+}
+
+.rayec-seg button {
+	min-height: 32px;
+	padding: 0 14px;
+	border: 0;
+	border-radius: 7px;
+	background: none;
+	color: var(--rayec-body);
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.rayec-seg button[aria-pressed="true"] {
+	background: var(--rayec-surface);
+	color: var(--rayec-primary);
+	box-shadow: var(--rayec-shadow);
+}
+
+.rayec-seg button:focus-visible {
+	outline: 2px solid var(--rayec-primary);
+	outline-offset: 1px;
+}
+
+/* Planner: week board */
+.rayec-wk-scroll {
+	overflow-x: auto;
+	border-top: 1px solid var(--rayec-border);
+}
+
+.rayec-wk {
+	min-width: 760px;
+}
+
+.rayec-wk__row {
+	display: grid;
+	grid-template-columns: 58px repeat(var(--rayec-wk-cols, 7), minmax(0, 1fr));
+}
+
+.rayec-wk__row > * + * {
+	border-inline-start: 1px solid var(--rayec-border);
+}
+
+.rayec-wk__head,
+.rayec-wk__allday {
+	border-bottom: 1px solid var(--rayec-border);
+}
+
+.rayec-wk__dayhead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 6px 8px;
+}
+
+.rayec-wk.has-lanes .rayec-wk__dayname .rayec-board__num {
+	display: none;
+}
+
+.rayec-wk__lane {
+	white-space: normal;
+	letter-spacing: 0;
+	text-transform: none;
+	font-size: 12.5px;
+	color: var(--rayec-text);
+}
+
+.rayec-wk__dayhead:hover .rayec-board__add {
+	opacity: 1;
+}
+
+.rayec-wk__dayname {
+	margin: 0;
+	padding: 0;
+	color: var(--rayec-muted);
+	font-size: 11.5px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+
+.rayec-wk__dayname .rayec-board__num {
+	margin-inline-start: 6px;
+	letter-spacing: 0;
+}
+
+.rayec-wk__dayhead.is-today .rayec-board__num {
+	background: var(--rayec-primary);
+	color: var(--rayec-surface);
+}
+
+.rayec-wk__gutter {
+	position: relative;
+	color: var(--rayec-muted);
+	font-size: 11px;
+}
+
+.rayec-wk__allday .rayec-wk__gutter {
+	padding: 8px 6px;
+	text-align: end;
+}
+
+.rayec-wk__cell {
+	min-height: 34px;
+	padding: 4px;
+}
+
+.rayec-wk__cell.is-drop,
+.rayec-wk__col.is-drop {
+	background-color: var(--rayec-tint);
+	box-shadow: inset 0 0 0 2px var(--rayec-primary);
+}
+
+.rayec-wk__body .rayec-wk__gutter,
+.rayec-wk__col {
+	height: var(--rayec-wk-height);
+}
+
+.rayec-wk__hour {
+	position: absolute;
+	inset-inline-end: 6px;
+	transform: translateY(-50%);
+	white-space: nowrap;
+}
+
+.rayec-wk__hour:first-child {
+	transform: none;
+}
+
+.rayec-wk__col {
+	position: relative;
+	/* One line per hour, a fainter one on the half hour. */
+	background-image:
+		linear-gradient(var(--rayec-border) 1px, transparent 1px),
+		linear-gradient(color-mix(in srgb, var(--rayec-border) 45%, transparent) 1px, transparent 1px);
+	background-size: 100% 48px, 100% 24px;
+	cursor: cell;
+}
+
+.rayec-wk__col.is-today {
+	background-color: color-mix(in srgb, var(--rayec-primary) 4%, transparent);
+}
+
+.rayec-wk__events {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-wk__ghost {
+	position: absolute;
+	inset-inline: 2px;
+	z-index: 3;
+	padding: 2px 6px;
+	border: 2px dashed var(--rayec-primary);
+	border-radius: 6px;
+	background: var(--rayec-tint);
+	color: var(--rayec-text);
+	font-size: 11.5px;
+	font-weight: 700;
+	pointer-events: none;
+}
+
+.rayec-pchip--block {
+	position: absolute;
+	z-index: 1;
+	overflow: hidden;
+	box-shadow: 0 0 0 1px var(--rayec-surface);
+}
+
+.rayec-pchip--block:hover,
+.rayec-pchip--block:focus-within,
+.rayec-pchip--block.is-stretching {
+	z-index: 2;
+}
+
+.rayec-pchip--block.is-stretching {
+	box-shadow: 0 0 0 2px var(--rayec-primary);
+}
+
+.rayec-pchip--block .rayec-pchip__main {
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: flex-start;
+	gap: 1px;
+	padding: 3px 6px;
+	font-size: 11.5px;
+	line-height: 1.25;
+}
+
+.rayec-pchip--block .rayec-pchip__title {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.rayec-pchip__title svg {
+	margin-inline-start: 4px;
+	vertical-align: -1px;
+}
+
+.rayec-pchip__note {
+	color: var(--rayec-primary);
+	font-weight: 700;
+}
+
+.rayec-pchip--block .rayec-pchip__menu .components-button {
+	height: 22px;
+	min-height: 22px;
+}
+
+.rayec-wk__handle {
+	position: absolute;
+	inset-inline: 0;
+	bottom: 0;
+	height: 8px;
+	cursor: ns-resize;
+	touch-action: none;
+}
+
+.rayec-wk__handle::after {
+	content: "";
+	position: absolute;
+	bottom: 2px;
+	left: 50%;
+	width: 20px;
+	height: 3px;
+	margin-left: -10px;
+	border-radius: 2px;
+	background: var(--rayec-chip);
+	opacity: 0;
+}
+
+.rayec-pchip--block:hover .rayec-wk__handle::after,
+.rayec-pchip--block.is-stretching .rayec-wk__handle::after {
+	opacity: 0.9;
+}
+
+/* Drawer (event editor) */
+.rayec-drawer-overlay.components-modal__screen-overlay {
+	justify-content: flex-end;
+	align-items: stretch;
+	background-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Opening a modal hides the page scrollbar; reserving its space stops the page jumping sideways. */
+html:has(body.rayec-app-screen) {
+	scrollbar-gutter: stable;
+}
+
+.rayec-drawer.components-modal__frame {
+	/* Keeps the title bar inside the drawer instead of across the window. */
+	position: relative;
+	width: 560px;
+	max-width: 100vw;
+	max-height: 100vh;
+	min-height: 100%;
+	margin: 0;
+	border-radius: 0;
+	background: var(--rayec-surface);
+	color: var(--rayec-text);
+	animation: none;
+}
+
+/* Native dropdown lists do not inherit the control's background, so set both. */
+.rayec-admin select option,
+.rayec-admin select optgroup,
+.components-modal__frame select option,
+.components-modal__frame select optgroup {
+	background-color: var(--rayec-surface);
+	color: var(--rayec-text);
+}
+
+/* Headings inside modals: wp-admin sets a dark heading colour that would vanish on dark. */
+.components-modal__frame .rayec-form__section,
+.components-modal__frame h1,
+.components-modal__frame h2,
+.components-modal__frame h3,
+.components-modal__frame legend,
+.components-modal__frame label {
+	color: var(--rayec-text);
+}
+
+.components-modal__frame {
+	background: var(--rayec-surface);
+	color: var(--rayec-text);
+}
+
+.components-modal__frame .components-modal__header {
+	background: var(--rayec-surface);
+}
+
+.rayec-drawer .components-modal__header {
+	border-bottom: 1px solid var(--rayec-border);
+	background: var(--rayec-surface);
+}
+
+.rayec-drawer .components-modal__header-heading {
+	color: var(--rayec-text);
+	font-size: 18px;
+	font-weight: 700;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.rayec-drawer.components-modal__frame {
+		animation: rayec-slide 0.18s ease-out;
+	}
+}
+
+@keyframes rayec-slide {
+	from {
+		transform: translateX(24px);
+		opacity: 0;
+	}
+	to {
+		transform: none;
+		opacity: 1;
+	}
+}
+
+.rayec-form {
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+}
+
+.rayec-form--settings {
+	max-width: 560px;
+	gap: 22px;
+}
+
+.rayec-form__row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 14px;
+}
+
+.rayec-form__section {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 6px 0 -4px;
+	padding: 14px 0 0;
+	border-top: 1px solid var(--rayec-border);
+	color: var(--rayec-text);
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.rayec-form__more.components-button {
+	align-self: flex-start;
+}
+
+.rayec-form__extra {
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+}
+
+.rayec-form__foot {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+	padding-top: 16px;
+	border-top: 1px solid var(--rayec-border);
+}
+
+.rayec-form__delete.components-button {
+	margin-inline-start: auto;
+}
+
+.rayec-field {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.rayec-field label,
+.rayec-days legend,
+.rayec-checks legend {
+	padding: 0;
+	color: var(--rayec-text);
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 1.4;
+	text-transform: uppercase;
+}
+
+.rayec-field--inline {
+	flex-direction: row;
+	align-items: center;
+	gap: 10px;
+}
+
+input.rayec-input {
+	width: 100%;
+	min-height: 40px;
+	padding: 6px 12px;
+	border: 1px solid #949494;
+	border-radius: 2px;
+	background: var(--rayec-surface);
+	color: var(--rayec-text);
+	font-size: 14px;
+	line-height: 1.4;
+}
+
+input.rayec-input:focus {
+	border-color: var(--rayec-primary);
+	box-shadow: 0 0 0 1px var(--rayec-primary);
+	outline: 2px solid transparent;
+}
+
+input.rayec-input--num {
+	width: 84px;
+}
+
+.rayec-nl {
+	position: relative;
+	padding: 16px;
+	border: 1px solid color-mix(in srgb, var(--rayec-primary) 35%, var(--rayec-border));
+	border-radius: var(--rayec-radius-sm);
+	background: var(--rayec-tint);
+}
+
+.rayec-nl .components-spinner {
+	position: absolute;
+	top: 12px;
+	inset-inline-end: 12px;
+	margin: 0;
+}
+
+.rayec-nl__note {
+	display: flex;
+	gap: 6px;
+	margin: 10px 0 0;
+	color: var(--rayec-amber-text);
+	font-size: 12.5px;
+}
+
+.rayec-repeat {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 16px;
+	border: 1px solid var(--rayec-border);
+	border-radius: var(--rayec-radius-sm);
+}
+
+.rayec-days,
+.rayec-checks {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.rayec-days legend,
+.rayec-checks legend {
+	width: 100%;
+	margin-bottom: 8px;
+}
+
+.rayec-checks {
+	flex-direction: column;
+	gap: 10px;
+}
+
+.rayec-checks--grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+}
+
+.rayec-checks--grid legend {
+	grid-column: 1 / -1;
+}
+
+.rayec-days label {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 48px;
+	min-height: 40px;
+	padding: 0 10px;
+	border: 1px solid var(--rayec-border);
+	border-radius: 999px;
+	background: var(--rayec-surface);
+	color: var(--rayec-body);
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.rayec-days label.is-on {
+	border-color: var(--rayec-primary);
+	background: var(--rayec-primary);
+	color: var(--rayec-surface);
+}
+
+.rayec-days input {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	opacity: 0;
+	cursor: pointer;
+}
+
+.rayec-days label:focus-within {
+	outline: 2px solid var(--rayec-primary);
+	outline-offset: 2px;
+}
+
+.rayec-preview {
+	padding: 14px 16px;
+	border-radius: var(--rayec-radius-sm);
+	background: var(--rayec-canvas);
+}
+
+.rayec-preview__title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0 0 8px;
+	color: var(--rayec-text);
+	font-weight: 700;
+}
+
+.rayec-preview ol {
+	margin: 0;
+	padding-inline-start: 22px;
+	color: var(--rayec-body);
+	font-size: 13px;
+}
+
+.rayec-preview li {
+	margin: 0 0 3px;
+}
+
+/* Destructive buttons use the theme's own danger colour so they stay readable on dark. */
+.rayec-admin .components-button.is-destructive:not(.is-primary),
+.components-modal__frame .components-button.is-destructive:not(.is-primary) {
+	color: var(--rayec-danger);
+}
+
+/*
+ * Menus open in a popover outside the app, where WordPress paints them white.
+ * Give them the app's surface and text so they stay readable in the dark theme.
+ */
+body.rayec-app-screen .components-popover:not(.rayec-peek) .components-popover__content {
+	border: 1px solid var(--rayec-border);
+	border-radius: 10px;
+	background: var(--rayec-surface);
+	color: var(--rayec-text);
+	box-shadow: 0 14px 34px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.12);
+	outline: none;
+}
+
+body.rayec-app-screen .components-popover .components-menu-item__button,
+body.rayec-app-screen .components-popover .components-menu-item__button .components-menu-item__item,
+body.rayec-app-screen .components-popover .components-menu-item__button svg {
+	color: var(--rayec-text);
+}
+
+body.rayec-app-screen .components-popover .components-menu-item__button:hover:not(:disabled),
+body.rayec-app-screen .components-popover .components-menu-item__button:focus-visible {
+	background: var(--rayec-tint);
+	color: var(--rayec-primary);
+}
+
+body.rayec-app-screen .components-popover .components-menu-item__button:hover:not(:disabled) .components-menu-item__item,
+body.rayec-app-screen .components-popover .components-menu-item__button:hover:not(:disabled) svg {
+	color: var(--rayec-primary);
+}
+
+body.rayec-app-screen .components-popover .components-menu-item__button.is-destructive,
+body.rayec-app-screen .components-popover .components-menu-item__button.is-destructive .components-menu-item__item {
+	color: var(--rayec-danger);
+}
+
+body.rayec-app-screen .components-popover .components-menu-group__label {
+	color: var(--rayec-muted);
+}
+
+body.rayec-app-screen .components-popover .components-menu-group + .components-menu-group {
+	border-top-color: var(--rayec-border);
+}
+
+/* Events table: selection, bulk actions, column chooser */
+.rayec-table__check {
+	width: 36px;
+	padding-inline-end: 0;
+}
+
+.rayec-check {
+	width: 18px;
+	height: 18px;
+	margin: 0;
+	accent-color: var(--rayec-primary);
+}
+
+.rayec-table tr.is-selected > * {
+	background: var(--rayec-tint);
+}
+
+.rayec-bulk {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 12px;
+	padding: 10px 14px;
+	border: 1px solid var(--rayec-primary);
+	border-radius: var(--rayec-radius);
+	background: var(--rayec-tint);
+}
+
+.rayec-bulk__count {
+	margin-inline-end: 6px;
+	color: var(--rayec-text);
+}
+
+.rayec-bulk__clear {
+	margin-inline-start: auto;
+}
+
+/* Rooms inside a venue */
+.rayec-rooms {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.rayec-rooms legend {
+	padding: 0;
+	font-weight: 600;
+}
+
+.rayec-rooms > .rayec-muted {
+	margin: 4px 0 10px;
+}
+
+.rayec-rooms__list {
+	display: grid;
+	gap: 6px;
+	margin: 0 0 8px;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-rooms__list li,
+.rayec-rooms__add {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin: 0;
+}
+
+.rayec-rooms .rayec-input {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Extra start times in the event form */
+.rayec-times {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.rayec-times legend {
+	padding: 0;
+	color: var(--rayec-text);
+	font-weight: 600;
+}
+
+.rayec-times > .rayec-muted {
+	margin: 4px 0 10px;
+}
+
+.rayec-times__row {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 6px;
+}
+
+.rayec-times__row .rayec-input {
+	width: 150px;
+}
+
+/* Speakers */
+.rayec-photo,
+.rayec-card__person {
+	display: flex;
+	gap: 14px;
+	align-items: center;
+}
+
+.rayec-photo img,
+.rayec-card__person img,
+.rayec-photo__empty {
+	flex: 0 0 auto;
+	width: 64px;
+	height: 64px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.rayec-photo__empty {
+	border: 1px dashed var(--rayec-border);
+	background: var(--rayec-canvas);
+}
+
+.rayec-photo__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.rayec-card__person .rayec-card__title,
+.rayec-card__person .rayec-card__desc {
+	margin: 0;
+}
+
+/* Public holidays picker in Settings */
+.rayec-holidays {
+	display: grid;
+	grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+	gap: 12px;
+	align-items: end;
+	margin: 12px 0 16px;
+	padding: 14px;
+	border: 1px solid var(--rayec-border);
+	border-radius: var(--rayec-radius);
+	background: var(--rayec-canvas);
+}
+
+.rayec-holidays .rayec-muted {
+	grid-column: 1 / -1;
+	margin: 0;
+}
+
+/* Category icon picker */
+.rayec-iconpick {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.rayec-iconpick legend {
+	width: 100%;
+	margin-bottom: 6px;
+	padding: 0;
+	font-weight: 600;
+}
+
+.rayec-iconpick label {
+	display: inline-flex;
+	gap: 6px;
+	align-items: center;
+	padding: 6px 10px;
+	border: 1px solid var(--rayec-border);
+	border-radius: 8px;
+	color: var(--rayec-text);
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.rayec-iconpick label.is-on {
+	border-color: var(--rayec-primary);
+	background: var(--rayec-tint);
+	box-shadow: inset 0 0 0 1px var(--rayec-primary);
+}
+
+.rayec-iconpick label:focus-within {
+	outline: 2px solid var(--rayec-primary);
+	outline-offset: 1px;
+}
+
+.rayec-iconpick input {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.rayec-iconpick .rayec-muted {
+	width: 100%;
+	margin: 2px 0 0;
+}
+
+/* Hover preview */
+.rayec-peek.components-popover {
+	z-index: 99990;
+}
+
+.rayec-peek .components-popover__content {
+	width: 290px;
+	border: 1px solid var(--rayec-border);
+	border-radius: 14px;
+	background: var(--rayec-surface);
+	color: var(--rayec-text);
+	box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0, 0, 0, 0.1);
+	outline: none;
+	overflow: hidden;
+}
+
+.rayec-peek__card img {
+	display: block;
+	width: 100%;
+	height: 140px;
+	object-fit: cover;
+}
+
+.rayec-peek__body {
+	padding: 14px 16px 16px;
+}
+
+.rayec-peek__body p {
+	margin: 0;
+}
+
+.rayec-peek__when {
+	color: var(--rayec-primary);
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.rayec-peek__title {
+	margin-top: 4px !important;
+	color: var(--rayec-text);
+	font-size: 15px;
+	font-weight: 700;
+	line-height: 1.3;
+}
+
+.rayec-peek__meta {
+	display: flex;
+	gap: 6px;
+	align-items: flex-start;
+	margin-top: 6px !important;
+	color: var(--rayec-body);
+	font-size: 12.5px;
+}
+
+.rayec-peek__meta .rayec-icon {
+	margin-top: 2px;
+}
+
+.rayec-peek__text {
+	margin-top: 8px !important;
+	color: var(--rayec-muted);
+	font-size: 12.5px;
+	line-height: 1.5;
+}
+
+.rayec-peek__badges {
+	display: flex;
+	gap: 6px;
+	margin-top: 10px !important;
+}
+
+.rayec-peek__badges:empty {
+	display: none;
+}
+
+/* Event image field */
+.rayec-image {
+	display: grid;
+	grid-template-columns: 150px minmax(0, 1fr);
+	gap: 16px;
+	align-items: start;
+}
+
+.rayec-image--empty {
+	grid-template-columns: 1fr;
+	justify-items: start;
+	gap: 10px;
+	padding: 18px;
+	border: 1px dashed var(--rayec-border);
+	border-radius: var(--rayec-radius-sm);
+}
+
+.rayec-image img {
+	display: block;
+	width: 150px;
+	height: 110px;
+	border-radius: var(--rayec-radius-sm);
+	object-fit: cover;
+}
+
+.rayec-image__side {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.rayec-image__actions {
+	display: flex;
+	gap: 8px;
+}
+
+/* Warnings */
+.rayec-warn {
+	padding: 12px 14px;
+	border: 1px solid var(--rayec-amber);
+	border-radius: var(--rayec-radius-sm);
+	background: var(--rayec-fair-bg);
+}
+
+.rayec-warn__title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0 0 6px;
+	color: var(--rayec-amber-text);
+	font-weight: 700;
+}
+
+.rayec-warn ul {
+	margin: 0 0 6px;
+	padding-inline-start: 22px;
+	color: var(--rayec-text);
+	list-style: disc;
+}
+
+.rayec-warn li {
+	margin: 0 0 2px;
+}
+
+/* Categories */
+.rayec-swatch {
+	display: inline-block;
+	width: 14px;
+	height: 14px;
+	margin-inline-end: 10px;
+	border: 1px solid var(--rayec-border);
+	border-radius: 50%;
+	vertical-align: -2px;
+}
+
+.rayec-swatches,
+.rayec-mapfields {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.rayec-mapfields {
+	flex-direction: column;
+	gap: 12px;
+	align-items: flex-start;
+}
+
+.rayec-mapfields .rayec-form__row {
+	width: 100%;
+}
+
+.rayec-swatches legend,
+.rayec-mapfields legend {
+	width: 100%;
+	margin-bottom: 8px;
+	padding: 0;
+	color: var(--rayec-text);
+	font-size: 11px;
+	font-weight: 500;
+	text-transform: uppercase;
+}
+
+.rayec-swatches label {
+	position: relative;
+	width: 36px;
+	height: 36px;
+	border: 2px solid var(--rayec-surface);
+	border-radius: 50%;
+	box-shadow: 0 0 0 1px var(--rayec-border);
+	cursor: pointer;
+}
+
+.rayec-swatches label.is-on {
+	box-shadow: 0 0 0 3px var(--rayec-text);
+}
+
+.rayec-swatches label:focus-within {
+	outline: 2px solid var(--rayec-primary);
+	outline-offset: 4px;
+}
+
+.rayec-swatches input {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	opacity: 0;
+	cursor: pointer;
+}
+
+.rayec-contrast {
+	display: flex;
+	gap: 8px;
+	margin: 0;
+	padding: 10px 12px;
+	border-radius: var(--rayec-radius-sm);
+	font-size: 13px;
+}
+
+.rayec-contrast.is-good {
+	background: var(--rayec-good-bg);
+	color: var(--rayec-good);
+}
+
+.rayec-contrast.is-fair {
+	background: var(--rayec-fair-bg);
+	color: var(--rayec-amber-text);
+}
+
+.rayec-contrast.is-poor {
+	background: var(--rayec-poor-bg);
+	color: var(--rayec-danger);
+}
+
+.rayec-table__actions--wide {
+	width: 160px;
+	white-space: nowrap;
+}
+
+/* Closed dates */
+.rayec-closed {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin: 16px 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-closed li {
+	display: grid;
+	grid-template-columns: 180px minmax(0, 320px) auto;
+	gap: 12px;
+	align-items: end;
+	margin: 0;
+}
+
+@media (max-width: 782px) {
+	.rayec-closed li {
+		grid-template-columns: 1fr;
+	}
+}
+
+.rayec-toasts.components-snackbar-list {
+	position: fixed;
+	bottom: 24px;
+	left: 50%;
+	z-index: 1000001;
+	width: auto;
+	transform: translateX(-50%);
+}
+
+/* Responsive */
+@media (max-width: 1280px) {
+	.rayec-stats {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 1100px) {
+	.rayec-cols {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media (max-width: 782px) {
+	.rayec-shell {
+		grid-template-columns: 1fr;
+		min-height: 0;
+	}
+
+	.rayec-side {
+		padding: 12px;
+	}
+
+	.rayec-side__brand {
+		margin-bottom: 10px;
+	}
+
+	.rayec-side__nav {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+
+	.rayec-side__foot {
+		display: none;
+	}
+
+	.rayec-main {
+		padding: 16px;
+	}
+
+	.rayec-stats {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.rayec-form__row,
+	.rayec-checks--grid {
+		grid-template-columns: 1fr;
+	}
+
+	/* The board becomes a list of days. */
+	.rayec-board,
+	.rayec-board tbody,
+	.rayec-board tr,
+	.rayec-board td {
+		display: block;
+		height: auto;
+	}
+
+	.rayec-board thead,
+	.rayec-board td.is-outside {
+		display: none;
+	}
+
+	.rayec-board td {
+		border-right: 0;
+		border-bottom: 1px solid var(--rayec-border);
+	}
+
+	.rayec-board__add {
+		opacity: 1;
+	}
+}
+
+@media (forced-colors: active) {
+	.rayec-side a.is-active,
+	.rayec-tabs button.is-active,
+	.rayec-days label.is-on {
+		outline: 2px solid Highlight;
+	}
+
+	.rayec-meter__fill {
+		background: Highlight;
+	}
+}
+
+/* ------------------------------------------------------------------Import
+ * The import screen is one long column of panels, each holding a few controls
+ * and sometimes a table, so the spacing is set here rather than on each one.
+ */
+.rayec-screen > .rayec-panel,
+.rayec-screen > .components-notice {
+	margin-top: 20px;
+}
+
+.rayec-screen > .rayec-head + .rayec-panel {
+	margin-top: 0;
+}
+
+.rayec-screen .rayec-panel__body > * + * {
+	margin-top: 16px;
+}
+
+.rayec-screen .rayec-panel__body > .rayec-form__foot,
+.rayec-screen .rayec-panel__body > .rayec-table,
+.rayec-screen .rayec-panel__body > .components-notice {
+	margin-top: 20px;
+}
+
+/* A field straight after a row of buttons needs more air than a border gives. */
+.rayec-screen .rayec-form__foot + .components-base-control {
+	margin-top: 24px;
+}
+
+/* ----------------------------------------------------------------- Import */
+/* The real file input; the button beside it is what people click. */
+.rayec-import__file {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}
+
+.rayec-import__counts {
+	margin: 0 0 16px;
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.rayec-import__options {
+	display: grid;
+	gap: 16px;
+	margin-bottom: 16px;
+}
+
+@media (min-width: 782px) {
+	.rayec-import__options {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+.rayec-import__table th[scope="row"] {
+	font-weight: 600;
+}
+
+.rayec-import__action {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 999px;
+	background: var(--rayec-soft);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.rayec-import__action.is-new {
+	background: color-mix(in srgb, var(--rayec-accent) 18%, transparent);
+	color: var(--rayec-accent);
+}
+
+.rayec-import__action.is-skipped {
+	opacity: 0.7;
+}
+
+.rayec-import__note {
+	display: block;
+	margin-top: 4px;
+	color: var(--rayec-muted);
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.rayec-import__sample {
+	max-width: 22ch;
+	overflow: hidden;
+	color: var(--rayec-muted);
+	font-size: 12px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.rayec-import__table caption {
+	margin-bottom: 8px;
+	font-size: 13px;
+	font-weight: 600;
+	text-align: left;
+}
+
+p.rayec-import__note {
+	margin: 0 0 16px;
+	max-width: 70ch;
+	color: var(--rayec-muted);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+/* ----------------------------------------------------------- Setup guide */
+
+/* The dashboard behind the dialog goes soft, so the dialog is the only thing
+   with edges. The tint alone is the fallback where backdrop-filter is not
+   understood, and the whole effect is dropped for forced colours. */
+.rayec-setup-over.components-modal__screen-overlay {
+	background-color: rgba(10, 20, 24, 0.5);
+}
+
+@supports ( backdrop-filter: blur( 1px ) ) or ( -webkit-backdrop-filter: blur( 1px ) ) {
+	.rayec-setup-over.components-modal__screen-overlay {
+		background-color: rgba(10, 20, 24, 0.35);
+		-webkit-backdrop-filter: blur(7px) saturate(118%);
+		backdrop-filter: blur(7px) saturate(118%);
+	}
+}
+
+@media ( forced-colors: active ) {
+	.rayec-setup-over.components-modal__screen-overlay {
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+}
+
+.rayec-setup .components-modal__header {
+	border-bottom: 1px solid var(--rayec-border);
+}
+
+/* Against a blurred page the dialog needs its own edge to sit on. */
+.rayec-setup.components-modal__frame {
+	border: 1px solid var(--rayec-border);
+	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.rayec-setup__steps {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 18px;
+	margin: 0 0 24px;
+	padding: 0 0 18px;
+	border-bottom: 1px solid var(--rayec-border);
+	list-style: none;
+}
+
+.rayec-setup__steps li {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	color: var(--rayec-muted);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.rayec-setup__steps li.is-current {
+	color: var(--rayec-text);
+}
+
+.rayec-setup__num {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	border-radius: 999px;
+	background: var(--rayec-soft);
+	color: var(--rayec-muted);
+	font-size: 12px;
+}
+
+.rayec-setup__steps li.is-current .rayec-setup__num {
+	background: var(--rayec-accent);
+	color: var(--rayec-on-accent, #fff);
+}
+
+.rayec-setup__steps li.is-done .rayec-setup__num {
+	background: color-mix(in srgb, var(--rayec-accent) 18%, transparent);
+	color: var(--rayec-accent);
+}
+
+.rayec-setup__found {
+	margin-bottom: 18px;
+	padding: 12px 14px;
+	border: 1px solid var(--rayec-border);
+	border-radius: var(--rayec-radius);
+	background: var(--rayec-soft);
+}
+
+.rayec-setup__found p {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.rayec-setup__title {
+	margin: 0 0 6px;
+	color: var(--rayec-text);
+	font-size: 20px;
+	font-weight: 700;
+}
+
+.rayec-setup__help {
+	margin: 0 0 18px;
+	max-width: 60ch;
+	color: var(--rayec-muted);
+	font-size: 13px;
+	line-height: 1.6;
+}
+
+.rayec-setup__error {
+	margin: 0 0 14px;
+	color: var(--rayec-danger, #c0392b);
+	font-size: 13px;
+}
+
+.rayec-setup__control {
+	min-height: 72px;
+}
+
+.rayec-setup__ways {
+	display: grid;
+	gap: 12px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-setup__ways li {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 14px;
+	margin: 0;
+}
+
+.rayec-setup__ways span {
+	flex: 1 1 220px;
+	color: var(--rayec-muted);
+	font-size: 13px;
+}
+
+.rayec-setup__foot {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-top: 26px;
+	padding-top: 18px;
+	border-top: 1px solid var(--rayec-border);
+}
+
+.rayec-setup__go {
+	margin-inline-start: auto;
+}
+
+.rayec-top__guide.components-button {
+	gap: 6px;
+}

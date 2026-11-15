@@ -1,0 +1,89 @@
+<?xml version="1.0"?>
+<ruleset name="RayEtun Events Calendar">
+	<description>WordPress coding standards for the plugin.</description>
+
+	<!-- Only the plugin itself: the sources and tooling around it are not shipped. -->
+	<file>rayetun-events-calendar</file>
+	<file>tests</file>
+
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/build/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="sp"/>
+	<arg name="parallel" value="8"/>
+
+	<config name="minimum_wp_version" value="6.9"/>
+
+	<!-- The whole standard, with nothing switched off. -->
+	<rule ref="WordPress"/>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="rayetun-events-calendar"/>
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="rayec"/>
+				<element value="RAYEC"/>
+				<element value="RayEtun\EventsCalendar"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!--
+		The tests are command-line scripts and PHPUnit test cases, not plugin
+		code. PHPUnit requires PascalCaseTest.php file names and camelCase
+		assertion methods; WordPress requires the opposite. PHPUnit wins inside
+		tests/, and nothing in here ships.
+	-->
+	<rule ref="WordPress.Files.FileName">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.NamingConventions.ValidFunctionName">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="Generic.Files.OneObjectStructurePerFile">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.WP.AlternativeFunctions.strip_tags_strip_tags">
+		<!-- The stub that defines wp_strip_all_tags() cannot call it. -->
+		<exclude-pattern>tests/bootstrap.php</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.Security.EscapeOutput">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<!--
+		The bench builds bulk inserts out of per-row prepare() calls and reads
+		EXPLAIN output, whose columns MySQL names in CamelCase. Both are
+		deliberate, and neither leaves tests/.
+	-->
+	<rule ref="WordPress.DB.PreparedSQL">
+		<exclude-pattern>tests/bench.php</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.NamingConventions.ValidVariableName">
+		<exclude-pattern>tests/bench.php</exclude-pattern>
+	</rule>
+	<rule ref="Generic.CodeAnalysis.ForLoopWithTestFunctionCall">
+		<exclude-pattern>tests/bench.php</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.DB.DirectDatabaseQuery">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.Commenting.FileComment">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<!-- The test loads WordPress with only this plugin active, for its own process. -->
+	<rule ref="WordPress.WP.GlobalVariablesOverride">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+</ruleset>
