@@ -50,6 +50,8 @@ foreach ( array( 'rayec_category', 'rayec_tag', 'rayec_program' ) as $rayec_taxo
 
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- dropping the plugin's own table on uninstall.
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}rayec_occurrences" );
+// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- dropping the plugin's own table on uninstall.
+$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}rayec_registrations" );
 
 // The still map pictures the plugin built for itself.
 $rayec_uploads = wp_upload_dir();

@@ -30,6 +30,9 @@ import {
 } from '../lib';
 import { Icon } from '../icons';
 import { Loading, ErrorNote } from './ui';
+import Attendees from './attendees';
+
+const RSVP_DEFAULTS = { enabled: false, capacity: 0, max: 1, access: true };
 
 const blank = ( defaults = {} ) => {
 	const date = defaults.date || addDays( today(), 1 );
@@ -71,6 +74,7 @@ const blank = ( defaults = {} ) => {
 		categories: [],
 		post_status: 'publish',
 		guard: null,
+		rsvp: { ...RSVP_DEFAULTS },
 	};
 };
 
@@ -590,6 +594,8 @@ export default function EventDrawer( { target, onClose } ) {
 
 	const speakerIds = ( event && event.speaker_ids ) || [];
 	const extraTimes = ( event && event.extra_times ) || [];
+	const rsvp = { ...RSVP_DEFAULTS, ...( ( event && event.rsvp ) || {} ) };
+	const setRsvp = ( changes ) => set( { rsvp: { ...rsvp, ...changes } } );
 
 	// Live preview of the next dates.
 	const rrule = event ? buildRule( rule, event.start.slice( 0, 10 ) ) : '';
@@ -660,6 +666,12 @@ export default function EventDrawer( { target, onClose } ) {
 			skip_closed: !! event.skip_closed,
 			organizer_id: event.organizer_id || 0,
 			thumbnail_id: event.thumbnail_id || 0,
+			rsvp: {
+				enabled: !! rsvp.enabled,
+				capacity: Math.max( 0, parseInt( rsvp.capacity, 10 ) || 0 ),
+				max: Math.max( 1, parseInt( rsvp.max, 10 ) || 1 ),
+				access: !! rsvp.access,
+			},
 		};
 		if ( ! event.id && event.description.trim() ) {
 			payload.description = event.description
@@ -1278,6 +1290,94 @@ export default function EventDrawer( { target, onClose } ) {
 						}
 					/>
 
+					<h3 className="rayec-form__section">
+						{ __( 'Registration', 'rayetun-events-calendar' ) }
+					</h3>
+					<ToggleControl
+						__nextHasNoMarginBottom
+						label={ __(
+							'Take registrations',
+							'rayetun-events-calendar'
+						) }
+						help={ __(
+							'Adds a Register form to the event page. People book a free place and get a confirmation email with a calendar file.',
+							'rayetun-events-calendar'
+						) }
+						checked={ rsvp.enabled }
+						onChange={ ( enabled ) => setRsvp( { enabled } ) }
+					/>
+					{ rsvp.enabled && (
+						<div className="rayec-rsvp-settings">
+							<div className="rayec-form__row">
+								<TextControl
+									__next40pxDefaultSize
+									__nextHasNoMarginBottom
+									type="number"
+									min={ 0 }
+									label={ __(
+										'Places per date',
+										'rayetun-events-calendar'
+									) }
+									help={
+										event.rrule || rrule
+											? __(
+													'Every date in the series gets this many places. 0 means no limit.',
+													'rayetun-events-calendar'
+											  )
+											: __(
+													'0 means no limit.',
+													'rayetun-events-calendar'
+											  )
+									}
+									value={ String( rsvp.capacity ?? 0 ) }
+									onChange={ ( capacity ) =>
+										setRsvp( {
+											capacity: Math.max(
+												0,
+												parseInt( capacity, 10 ) || 0
+											),
+										} )
+									}
+								/>
+								<SelectControl
+									__next40pxDefaultSize
+									__nextHasNoMarginBottom
+									label={ __(
+										'Places one person can book',
+										'rayetun-events-calendar'
+									) }
+									value={ String( rsvp.max ) }
+									options={ Array.from(
+										{ length: 10 },
+										( unused, index ) => ( {
+											label: String( index + 1 ),
+											value: String( index + 1 ),
+										} )
+									) }
+									onChange={ ( max ) =>
+										setRsvp( { max: parseInt( max, 10 ) } )
+									}
+								/>
+							</div>
+							<ToggleControl
+								__nextHasNoMarginBottom
+								label={ __(
+									'Ask about access requirements',
+									'rayetun-events-calendar'
+								) }
+								help={ __(
+									'People can tell you what would help them take part. Only organisers see the answer.',
+									'rayetun-events-calendar'
+								) }
+								checked={ rsvp.access }
+								onChange={ ( access ) => setRsvp( { access } ) }
+							/>
+						</div>
+					) }
+					{ event.id > 0 && rsvp.enabled && (
+						<Attendees eventId={ event.id } />
+					) }
+
 					{ ! event.id && (
 						<TextareaControl
 							__nextHasNoMarginBottom
@@ -1323,10 +1423,17 @@ export default function EventDrawer( { target, onClose } ) {
 									'Event status',
 									'rayetun-events-calendar'
 								) }
-								help={ __(
-									'Shown as a banner on the event page and in calendar feeds.',
-									'rayetun-events-calendar'
-								) }
+								help={
+									rsvp.enabled
+										? __(
+												'Shown as a banner on the event page and in calendar feeds. Everyone booked on a coming date is emailed about the change a minute after you save.',
+												'rayetun-events-calendar'
+										  )
+										: __(
+												'Shown as a banner on the event page and in calendar feeds.',
+												'rayetun-events-calendar'
+										  )
+								}
 								value={ event.event_status }
 								options={ [
 									{

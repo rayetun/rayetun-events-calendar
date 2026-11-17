@@ -81,6 +81,8 @@ class Rest {
 			array( '/events/bulk', WP_REST_Server::CREATABLE, 'bulk_events', $edit ),
 			array( '/events/(?P<id>\d+)/occurrence', WP_REST_Server::CREATABLE, 'change_occurrence', $edit, $id_arg ),
 			array( '/events/(?P<id>\d+)/series-restore', WP_REST_Server::CREATABLE, 'restore_series', $edit, $id_arg ),
+			array( '/events/(?P<id>\d+)/registrations', WP_REST_Server::READABLE, 'list_registrations', $edit, $id_arg ),
+			array( '/registrations/(?P<id>\d+)', WP_REST_Server::EDITABLE, 'update_registration', $edit, $id_arg ),
 			array( '/guard', WP_REST_Server::CREATABLE, 'guard_check', $edit ),
 			array( '/categories/(?P<id>\d+)', WP_REST_Server::EDITABLE, 'save_category', $manage, $id_arg ),
 			array( '/categories/(?P<id>\d+)', WP_REST_Server::DELETABLE, 'delete_category', $manage, $id_arg ),
@@ -300,6 +302,7 @@ class Rest {
 			'rrule'     => $event['rrule'],
 			'exdates'   => $event['exdates'],
 			'remove_id' => 0,
+			'bookings'  => array(),
 		);
 
 		if ( 'end' === $action || 'split' === $action ) {
@@ -331,6 +334,10 @@ class Rest {
 					return $created;
 				}
 				$undo['remove_id'] = $created;
+				$undo['bookings']  = Registrations::move_from( $id, $date, (int) $created );
+			} else {
+				// Ending the series: the dates after it are no longer happening.
+				$undo['bookings'] = Registrations::drop_dates( $id, $date . ' 00:00:00' );
 			}
 			$result = Event::save( array( 'rrule' => Recurrence::with_until( $event['rrule'], $before->format( 'Ymd' ) ) ), $id );
 		} elseif ( 'skip' === $action || 'detach' === $action ) {
@@ -361,6 +368,10 @@ class Rest {
 					return $created;
 				}
 				$undo['remove_id'] = $created;
+				$undo['bookings']  = Registrations::move_date( $id, $date . ' ' . substr( $event['start'], 11, 5 ) . ':00', (int) $created, $copy['start'] . ':00' );
+			} else {
+				// Skipping a date: its bookings are cancelled and the people told.
+				$undo['bookings'] = Registrations::drop_dates( $id, $date . ' 00:00:00', $date . ' 23:59:59' );
 			}
 			$result = Event::save( array( 'exdates' => array_merge( $event['exdates'], array( $date ) ) ), $id );
 		} else {
@@ -389,6 +400,11 @@ class Rest {
 			return new WP_Error( 'rayec_forbidden', __( 'You cannot change this event.', 'rayetun-events-calendar' ), array( 'status' => 403 ) );
 		}
 		$remove = (int) $request->get_param( 'remove_id' );
+		$events = array( $id );
+		if ( $remove && Post_Types::EVENT === get_post_type( $remove ) && current_user_can( 'edit_post', $remove ) ) {
+			$events[] = $remove;
+		}
+		Registrations::restore( $request->get_param( 'bookings' ), $events );
 		if ( $remove && Post_Types::EVENT === get_post_type( $remove ) && current_user_can( 'delete_post', $remove ) ) {
 			wp_delete_post( $remove, true );
 		}
@@ -796,6 +812,105 @@ class Rest {
 		}
 		$next = Occurrences::next_for_events( array( $event['id'] ) );
 		return self::event_view( $event, $next[ $event['id'] ] ?? null );
+	}
+
+	/**
+	 * Everyone registered for an event, with each date's places.
+	 *
+	 * Lists the next dates of the series even when nobody has registered for
+	 * them yet, and any past date somebody did register for.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public static function list_registrations( WP_REST_Request $request ) {
+		$event = Event::get( (int) $request['id'] );
+		if ( ! $event || ! current_user_can( 'edit_post', $event['id'] ) ) {
+			return new WP_Error( 'rayec_not_found', __( 'That event no longer exists.', 'rayetun-events-calendar' ), array( 'status' => 404 ) );
+		}
+
+		$rows  = Registrations::for_event( (int) $event['id'] );
+		$taken = Registrations::taken( (int) $event['id'] );
+		$dates = array();
+		foreach ( Registrations::upcoming_dates( $event ) as $date ) {
+			$dates[ $date['start'] ] = array(
+				'start'    => $date['start'],
+				'label'    => $date['label'],
+				'taken'    => $date['taken'],
+				'upcoming' => true,
+			);
+		}
+		$tz  = Event::timezone( (string) $event['timezone'] );
+		$now = new DateTimeImmutable( 'now', $tz );
+		foreach ( $rows as $row ) {
+			$start = (string) $row->occurrence_start;
+			if ( isset( $dates[ $start ] ) ) {
+				continue;
+			}
+			$local           = Event::local_datetime( $start, $tz );
+			$dates[ $start ] = array(
+				'start'    => $start,
+				'label'    => Registrations::when( $event, $start ),
+				'taken'    => $taken[ $start ] ?? 0,
+				'upcoming' => $local && $local > $now,
+			);
+		}
+		ksort( $dates );
+
+		return array(
+			'title'         => $event['title'],
+			'capacity'      => (int) $event['rsvp']['capacity'],
+			'dates'         => array_values( $dates ),
+			'registrations' => array_map( array( __CLASS__, 'registration_view' ), $rows ),
+		);
+	}
+
+	/**
+	 * Confirm or cancel a registration from the dashboard.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public static function update_registration( WP_REST_Request $request ) {
+		$row = Registrations::get( (int) $request['id'] );
+		if ( ! $row || ! current_user_can( 'edit_post', (int) $row->event_id ) ) {
+			return new WP_Error( 'rayec_not_found', __( 'That registration no longer exists.', 'rayetun-events-calendar' ), array( 'status' => 404 ) );
+		}
+
+		/**
+		 * Filters the statuses an organiser may set from the dashboard.
+		 *
+		 * @param string[] $statuses "confirmed" and "cancelled".
+		 */
+		$allowed = (array) apply_filters( 'rayec_registration_admin_statuses', array( 'confirmed', 'cancelled' ) );
+		$status  = sanitize_key( (string) $request->get_param( 'status' ) );
+		if ( ! in_array( $status, $allowed, true ) ) {
+			return new WP_Error( 'rayec_bad_status', __( 'That is not a registration status.', 'rayetun-events-calendar' ), array( 'status' => 400 ) );
+		}
+
+		$result = Registrations::set_status( (int) $row->id, $status, 'organiser' );
+		return is_wp_error( $result ) ? $result : self::registration_view( $result );
+	}
+
+	/**
+	 * A registration as the dashboard sees it.
+	 *
+	 * @param object $row Registration row.
+	 * @return array<string, mixed>
+	 */
+	public static function registration_view( object $row ): array {
+		$data = json_decode( (string) $row->data, true );
+		return array(
+			'id'      => (int) $row->id,
+			'start'   => (string) $row->occurrence_start,
+			'name'    => (string) $row->name,
+			'email'   => (string) $row->email,
+			'places'  => (int) $row->places,
+			'status'  => (string) $row->status,
+			'access'  => (string) $row->access_request,
+			'data'    => is_array( $data ) ? $data : array(),
+			'created' => get_date_from_gmt( (string) $row->created_utc, (string) get_option( 'date_format', 'F j, Y' ) . ' ' . Plugin::time_format() ),
+		);
 	}
 
 	/**

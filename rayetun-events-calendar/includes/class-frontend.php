@@ -1536,7 +1536,8 @@ class Frontend {
 		 */
 		$before = (string) apply_filters( 'rayec_single_before', $before, $event );
 
-		$after = '<div class="rayec-single rayec-single--after' . self::theme_class() . '">';
+		$after  = '<div class="rayec-single rayec-single--after' . self::theme_class() . '">';
+		$after .= Registrations::render( $event, $times );
 		if ( ! empty( $event['venue'] ) && 'online' !== $event['format'] ) {
 			$after .= self::place( $event['venue'], (string) ( $event['room'] ?? '' ) );
 		}
@@ -1602,6 +1603,11 @@ class Frontend {
 				}
 			}
 			$rows[] = array( __( 'When', 'rayetun-events-calendar' ), $when );
+		}
+
+		$places = Registrations::fact( $event, $times );
+		if ( $places ) {
+			$rows[] = $places;
 		}
 
 		$online    = in_array( $event['format'], array( 'online', 'hybrid' ), true ) || 'moved_online' === $event['event_status'];

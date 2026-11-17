@@ -26,7 +26,9 @@ class Plugin {
 	public static function init(): void {
 		Installer::maybe_upgrade();
 		Post_Types::init();
+		Event::init();
 		Occurrences::init();
+		Registrations::init();
 		Rest::init();
 		Frontend::init();
 		Blocks::init();
@@ -72,16 +74,19 @@ class Plugin {
 	 */
 	public static function default_settings(): array {
 		return array(
-			'default_view'   => 'month',
-			'week_starts_on' => (int) get_option( 'start_of_week', 1 ),
-			'time_format'    => '',
-			'events_slug'    => 'events',
-			'show_past'      => false,
-			'theme'          => 'inherit',
-			'map_mode'       => 'ask',
-			'list_per_page'  => 10,
-			'delete_data'    => false,
-			'closed_dates'   => array(),
+			'default_view'      => 'month',
+			'week_starts_on'    => (int) get_option( 'start_of_week', 1 ),
+			'time_format'       => '',
+			'events_slug'       => 'events',
+			'show_past'         => false,
+			'theme'             => 'inherit',
+			'map_mode'          => 'ask',
+			'list_per_page'     => 10,
+			'delete_data'       => false,
+			'closed_dates'      => array(),
+			// Email the organiser about each registration; an empty address means the site's.
+			'rsvp_notify'       => true,
+			'rsvp_notify_email' => '',
 		);
 	}
 
@@ -146,6 +151,13 @@ class Plugin {
 		}
 		if ( isset( $input['delete_data'] ) ) {
 			$current['delete_data'] = (bool) $input['delete_data'];
+		}
+
+		if ( isset( $input['rsvp_notify'] ) ) {
+			$current['rsvp_notify'] = (bool) $input['rsvp_notify'];
+		}
+		if ( isset( $input['rsvp_notify_email'] ) ) {
+			$current['rsvp_notify_email'] = sanitize_email( (string) $input['rsvp_notify_email'] );
 		}
 
 		if ( isset( $input['closed_dates'] ) && is_array( $input['closed_dates'] ) ) {

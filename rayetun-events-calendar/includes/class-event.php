@@ -28,6 +28,76 @@ class Event {
 	const FORMATS  = array( 'in_person', 'online', 'hybrid' );
 
 	/**
+	 * Statuses read just before they are overwritten, by event ID.
+	 *
+	 * @var array<int, string>
+	 */
+	private static array $status_before = array();
+
+	/**
+	 * Hooks.
+	 *
+	 * A status can be changed from the drawer, from a bulk action on the
+	 * Events table, or from the block editor through WordPress's own REST
+	 * meta. Watching the meta itself catches all three, and anything an
+	 * add-on or an import does as well.
+	 *
+	 * @return void
+	 */
+	public static function init(): void {
+		add_action( 'update_post_meta', array( __CLASS__, 'note_status' ), 10, 3 );
+		add_action( 'updated_post_meta', array( __CLASS__, 'status_written' ), 10, 4 );
+		add_action( 'added_post_meta', array( __CLASS__, 'status_written' ), 10, 4 );
+	}
+
+	/**
+	 * Remember a status before it is overwritten.
+	 *
+	 * @param int    $meta_id   Meta ID.
+	 * @param int    $object_id Post ID.
+	 * @param string $meta_key  Meta key.
+	 * @return void
+	 */
+	public static function note_status( $meta_id, $object_id, $meta_key ): void {
+		if ( '_rayec_status' === $meta_key ) {
+			self::$status_before[ (int) $object_id ] = (string) get_post_meta( (int) $object_id, '_rayec_status', true );
+		}
+	}
+
+	/**
+	 * Announce a status that has changed.
+	 *
+	 * @param int    $meta_id   Meta ID.
+	 * @param int    $object_id Post ID.
+	 * @param string $meta_key  Meta key.
+	 * @param mixed  $value     New value.
+	 * @return void
+	 */
+	public static function status_written( $meta_id, $object_id, $meta_key, $value ): void {
+		if ( '_rayec_status' !== $meta_key ) {
+			return;
+		}
+		$id  = (int) $object_id;
+		$old = self::$status_before[ $id ] ?? '';
+		unset( self::$status_before[ $id ] );
+		$old = in_array( $old, self::STATUSES, true ) ? $old : 'scheduled';
+		$new = in_array( (string) $value, self::STATUSES, true ) ? (string) $value : 'scheduled';
+		if ( $old === $new ) {
+			return;
+		}
+		self::forget( $id );
+
+		/**
+		 * Fires when an event's status changes, however it was changed.
+		 *
+		 * @param int    $id  Event ID.
+		 * @param string $new "scheduled", "cancelled", "postponed" or "moved_online".
+		 * @param string $old The status before.
+		 */
+		do_action( 'rayec_event_status_changed', $id, $new, $old );
+	}
+
+	/**
 	 * A valid time zone object for a stored value.
 	 *
 	 * @param string $name Time zone name.
@@ -95,6 +165,7 @@ class Event {
 			'venue'        => null,
 			'categories'   => array(),
 			'thumbnail_id' => 0,
+			'rsvp'         => Registrations::defaults(),
 		);
 	}
 
@@ -214,6 +285,7 @@ class Event {
 			'venue'        => $venue,
 			'categories'   => $categories,
 			'thumbnail_id' => $thumbnail_id,
+			'rsvp'         => Registrations::settings( $id ),
 		);
 
 		/**
@@ -473,6 +545,16 @@ class Event {
 		}
 		if ( isset( $data['category_ids'] ) && is_array( $data['category_ids'] ) ) {
 			wp_set_object_terms( $id, array_map( 'intval', $data['category_ids'] ), Post_Types::CATEGORY );
+		}
+
+		if ( isset( $data['rsvp'] ) && is_array( $data['rsvp'] ) ) {
+			Registrations::save_settings( $id, $data['rsvp'] );
+		}
+
+		if ( $existing ) {
+			// Bookings are named by their date's start, so they move when it does.
+			$repeats = array_key_exists( 'rrule', $data ) ? '' !== Recurrence::normalize( (string) $data['rrule'] ) : '' !== $existing['rrule'];
+			Registrations::follow_move( $id, (string) $existing['start'], $start->format( 'Y-m-d H:i' ), '' !== $existing['rrule'], $repeats );
 		}
 
 		self::forget( $id );

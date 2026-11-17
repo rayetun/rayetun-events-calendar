@@ -96,7 +96,10 @@ const CORE_SCREENS = [
 const SCREENS = applyFilters( 'rayec.screens', CORE_SCREENS );
 
 const currentPath = () => {
-	const hash = window.location.hash.replace( /^#/, '' );
+	// "#/events/123" opens the events screen with that event in the drawer.
+	const hash = window.location.hash
+		.replace( /^#/, '' )
+		.replace( /^(\/events)\/\d+$/, '$1' );
 	return SCREENS.some( ( screen ) => screen.path === hash ) ? hash : '/';
 };
 
@@ -113,7 +116,10 @@ function App() {
 		}
 	} );
 	const [ notices, setNotices ] = useState( [] );
-	const [ editing, setEditing ] = useState( null );
+	const [ editing, setEditing ] = useState( () => {
+		const linked = window.location.hash.match( /^#\/events\/(\d+)$/ );
+		return linked ? parseInt( linked[ 1 ], 10 ) : null;
+	} );
 	// The guide opens itself the first time; the header button brings it back.
 	const [ guide, setGuide ] = useState( false );
 	const [ setup, setSetup ] = useState( null );

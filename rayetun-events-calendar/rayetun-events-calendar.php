@@ -21,7 +21,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 define( 'RAYEC_VERSION', '1.0.0' );
-define( 'RAYEC_DB_VERSION', '1' );
+define( 'RAYEC_DB_VERSION', '2' );
+
+/*
+ * The version of the hooks add-ons connect through. It goes up whenever a
+ * hook an add-on relies on is added, so the Pro plugin can check for what
+ * it needs without depending on a release number.
+ */
+define( 'RAYEC_EXTENSION_API', 2 );
 define( 'RAYEC_FILE', __FILE__ );
 define( 'RAYEC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'RAYEC_URL', plugin_dir_url( __FILE__ ) );

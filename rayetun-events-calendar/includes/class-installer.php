@@ -100,5 +100,29 @@ class Installer {
 				KEY start_local (start_local)
 			) {$charset};"
 		);
+
+		// One row per registration. A date is named by the event's own
+		// wall-clock start, because occurrence rows are rebuilt on every save.
+		$registrations = $wpdb->prefix . Registrations::TABLE;
+		dbDelta(
+			"CREATE TABLE {$registrations} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				event_id bigint(20) unsigned NOT NULL,
+				occurrence_start datetime NOT NULL,
+				name varchar(190) NOT NULL DEFAULT '',
+				email varchar(190) NOT NULL DEFAULT '',
+				places smallint(5) unsigned NOT NULL DEFAULT 1,
+				status varchar(20) NOT NULL DEFAULT 'confirmed',
+				access_request text NULL,
+				data longtext NULL,
+				token_hash char(64) NOT NULL DEFAULT '',
+				user_id bigint(20) unsigned NOT NULL DEFAULT 0,
+				created_utc datetime NOT NULL,
+				updated_utc datetime NOT NULL,
+				PRIMARY KEY  (id),
+				KEY event_date (event_id,occurrence_start),
+				KEY email (email)
+			) {$charset};"
+		);
 	}
 }

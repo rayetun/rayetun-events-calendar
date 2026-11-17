@@ -291,6 +291,46 @@ export default function Settings() {
 			),
 		},
 		{
+			key: 'rsvp_notify',
+			label: __(
+				'Email me when someone registers or cancels',
+				'rayetun-events-calendar'
+			),
+			help: __(
+				'Each email names the person, the date and any access requirements they mentioned.',
+				'rayetun-events-calendar'
+			),
+			toggle: true,
+			render: ( props ) => (
+				<ToggleControl
+					__nextHasNoMarginBottom
+					label={ props.label }
+					help={ props.help }
+					checked={ !! form.rsvp_notify }
+					onChange={ ( value ) => set( { rsvp_notify: value } ) }
+				/>
+			),
+		},
+		{
+			key: 'rsvp_notify_email',
+			label: __( 'Send registration emails to', 'rayetun-events-calendar' ),
+			help: __(
+				'Leave empty to use the site’s admin email address.',
+				'rayetun-events-calendar'
+			),
+			render: ( props ) => (
+				<TextControl
+					{ ...props }
+					type="email"
+					disabled={ ! form.rsvp_notify }
+					value={ form.rsvp_notify_email || '' }
+					onChange={ ( value ) =>
+						set( { rsvp_notify_email: value } )
+					}
+				/>
+			),
+		},
+		{
 			key: 'delete_data',
 			label: __(
 				'Delete all events and settings when the plugin is deleted',

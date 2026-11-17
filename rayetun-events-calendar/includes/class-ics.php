@@ -367,6 +367,53 @@ class Ics {
 	}
 
 	/**
+	 * A calendar file holding one date of an event, for a registration email.
+	 *
+	 * The feed describes a series with its rule; someone who booked one date
+	 * wants that date in their calendar, not every week for two years. The
+	 * times are written in UTC, which every calendar program reads the same
+	 * way for a single, fixed moment.
+	 *
+	 * @param array<string, mixed> $event Event.
+	 * @param DateTimeImmutable    $start Start of the date.
+	 * @param DateTimeImmutable    $end   End of the date.
+	 * @return string
+	 */
+	public static function single( array $event, DateTimeImmutable $start, DateTimeImmutable $end ): string {
+		$utc  = new DateTimeZone( 'UTC' );
+		$host = (string) wp_parse_url( home_url(), PHP_URL_HOST );
+
+		$lines = array(
+			'BEGIN:VCALENDAR',
+			'VERSION:2.0',
+			'PRODID:-//RayEtun//Events Calendar ' . RAYEC_VERSION . '//EN',
+			'CALSCALE:GREGORIAN',
+			'METHOD:PUBLISH',
+			'BEGIN:VEVENT',
+			'UID:rayec-' . $event['id'] . '-' . $start->setTimezone( $utc )->format( 'Ymd\THis\Z' ) . '@' . $host,
+			'DTSTAMP:' . gmdate( 'Ymd\THis\Z' ),
+		);
+		if ( $event['all_day'] ) {
+			$lines[] = 'DTSTART;VALUE=DATE:' . $start->format( 'Ymd' );
+			$lines[] = 'DTEND;VALUE=DATE:' . $end->modify( '+1 day' )->format( 'Ymd' );
+		} else {
+			$lines[] = 'DTSTART:' . $start->setTimezone( $utc )->format( 'Ymd\THis\Z' );
+			$lines[] = 'DTEND:' . $end->setTimezone( $utc )->format( 'Ymd\THis\Z' );
+		}
+		$lines[]  = 'SUMMARY:' . self::escape( (string) $event['title'] );
+		$location = self::location( $event );
+		if ( '' !== $location ) {
+			$lines[] = 'LOCATION:' . self::escape( $location );
+		}
+		$lines[] = 'URL:' . esc_url_raw( (string) $event['permalink'] );
+		$lines[] = 'STATUS:CONFIRMED';
+		$lines[] = 'END:VEVENT';
+		$lines[] = 'END:VCALENDAR';
+
+		return implode( "\r\n", array_map( array( __CLASS__, 'fold' ), $lines ) ) . "\r\n";
+	}
+
+	/**
 	 * Escape a text value (RFC 5545 section 3.3.11).
 	 *
 	 * @param string $text Text.
