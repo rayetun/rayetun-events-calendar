@@ -20,6 +20,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import './editor.css';
 import { api, config, today, addDays, parseRule, buildRule } from '../admin/lib';
 import { DateTimeField, RepeatFields } from '../admin/components/event-drawer';
+import GoodToKnow from '../admin/components/good-to-know';
 
 const POST_TYPE = 'rayec_event';
 
@@ -603,6 +604,38 @@ function AccessPanel() {
 	);
 }
 
+/** Age, doors and the cancellation policy, shown as "Good to know". */
+function GoodToKnowPanel() {
+	const [ meta, setMeta ] = useEntityProp( 'postType', POST_TYPE, 'meta' );
+	const fields = {
+		age: '_rayec_age',
+		doors: '_rayec_doors',
+		policy: '_rayec_policy',
+	};
+
+	return (
+		<PluginDocumentSettingPanel
+			name="rayec-good-to-know"
+			title={ __( 'Good to know', 'rayetun-events-calendar' ) }
+			className="rayec-editor-panel"
+		>
+			<GoodToKnow
+				age={ meta?._rayec_age || '' }
+				doors={ meta?._rayec_doors || 0 }
+				policy={ meta?._rayec_policy || '' }
+				bookings={ false }
+				onChange={ ( changed ) => {
+					const next = { ...meta };
+					Object.entries( changed ).forEach( ( [ key, value ] ) => {
+						next[ fields[ key ] ] = value;
+					} );
+					setMeta( next );
+				} }
+			/>
+		</PluginDocumentSettingPanel>
+	);
+}
+
 function GuardPanels() {
 	const guard = useGuard();
 	const title = guard
@@ -646,6 +679,7 @@ registerPlugin( 'rayec-event-details', {
 				<WhenPanel />
 				<WherePanel />
 				<AccessPanel />
+				<GoodToKnowPanel />
 				<GuardPanels />
 			</>
 		);

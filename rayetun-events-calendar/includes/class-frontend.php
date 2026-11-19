@@ -313,6 +313,15 @@ class Frontend {
 			'calendar' => 'M8 2.5v3M16 2.5v3M3.5 9.5h17M5.5 4h13a2 2 0 0 1 2 2v13.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
 			'users'    => 'M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35M15.5 4.65a3.5 3.5 0 0 1 0 6.7',
 			'ticket'   => 'M3.5 9a2.5 2.5 0 0 0 0 5v3.5a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5V14a2.5 2.5 0 0 1 0-5V5.5A1.5 1.5 0 0 0 19 4H5a1.5 1.5 0 0 0-1.5 1.5zM14 4.5v2M14 10.5v3M14 17.5v1.5',
+			'timer'    => 'M10 2.5h4M12 14l3-3M12 21.5a8 8 0 1 0 0-16 8 8 0 0 0 0 16z',
+			'door'     => 'M5.5 21V4.5A1.5 1.5 0 0 1 7 3h10a1.5 1.5 0 0 1 1.5 1.5V21M3 21h18M14.5 12v.5',
+			'shield'   => 'M12 21.5s7.5-3.5 7.5-9.5V5.5L12 2.5l-7.5 3V12c0 6 7.5 9.5 7.5 9.5zM9 12l2 2 4-4',
+			'walk'     => 'M13.5 5.5a1.75 1.75 0 1 0 0-3.5 1.75 1.75 0 0 0 0 3.5zM9.5 21.5l2.5-6.5M12 15l3 2.5v4M7.5 12l2.5-3.5 3.5-.5 2.5 3.5 3 1M12 15l1.5-7',
+			'bike'     => 'M5.5 21a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM18.5 21a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM15 6.5a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5zM12 17.5V14l-3-3 4-3 2 3h2',
+			'bus'      => 'M5 17V6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v11zM5 11h14M7.5 17v3M16.5 17v3M8.5 14h.01M15.5 14h.01',
+			'car'      => 'M3.5 17v-4.5l2-5.5a2 2 0 0 1 1.9-1.4h9.2a2 2 0 0 1 1.9 1.4l2 5.5V17zM3.5 12.5h17M6.5 17v2.5M17.5 17v2.5M7.5 14.75h.01M16.5 14.75h.01',
+			'tag'      => 'M3 12.2V4.5A1.5 1.5 0 0 1 4.5 3h7.7l8.8 8.8-9.2 9.2zM7.5 7.5h.01',
+			'arrow'    => 'M5 12h14M13 6l6 6-6 6',
 		);
 		return '<svg class="rayec-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="' . esc_attr( $paths[ $name ] ?? '' ) . '"/></svg>';
 	}
@@ -630,7 +639,7 @@ class Frontend {
 	 * @param array<int, object> $rows Index rows.
 	 * @return array<int, array<string, mixed>>
 	 */
-	private static function hydrate( array $rows ): array {
+	public static function hydrate( array $rows ): array {
 		// One trip for every post, one for all their meta, one for all their
 		// terms, before anything asks for an event. Otherwise a busy month is
 		// three queries per event.
@@ -1297,7 +1306,7 @@ class Frontend {
 	 * @param bool                 $short "3 left" rather than "3 places left", for a chip.
 	 * @return array{0: string, 1: string}|null Text and modifier class.
 	 */
-	private static function places_label( array $item, bool $short = false ): ?array {
+	public static function places_label( array $item, bool $short = false ): ?array {
 		if ( null === ( $item['left'] ?? null ) ) {
 			return null;
 		}
@@ -1637,16 +1646,17 @@ class Frontend {
 				$html .= '<p class="rayec-place__notes">' . esc_html( $venue['access_notes'] ) . '</p>';
 			}
 		}
-		// Written directions: the part of "where" that a map cannot say.
+		// Written directions (the part of "where" that a map cannot say), then
+		// the route by each way of travelling.
+		$html .= '<h3 class="rayec-place__sub">' . esc_html__( 'Getting here', 'rayetun-events-calendar' ) . '</h3>';
 		if ( '' !== ( $venue['directions'] ?? '' ) ) {
-			$html .= '<h3 class="rayec-place__sub">' . esc_html__( 'Getting here', 'rayetun-events-calendar' ) . '</h3>';
 			$html .= wp_kses_post( wpautop( esc_html( $venue['directions'] ) ) );
 		}
+		$html .= Event_Page::routes( $venue );
 
 		$html .= '<p class="rayec-place__links">';
 		/* translators: %s: venue name. */
 		$html .= '<a href="' . esc_url( $osm ) . '" rel="noopener">' . esc_html( sprintf( __( 'Open %s in OpenStreetMap', 'rayetun-events-calendar' ), $venue['name'] ) ) . '</a>';
-		$html .= '<a href="' . esc_url( self::directions_url( $venue ) ) . '" rel="noopener">' . esc_html__( 'Directions from your door', 'rayetun-events-calendar' ) . '</a>';
 		$html .= '</p>';
 		$html .= '</div>';
 
@@ -1654,19 +1664,6 @@ class Frontend {
 		$html .= '</section>';
 
 		return $html;
-	}
-
-	/**
-	 * A link that works out the route to the venue.
-	 *
-	 * @param array<string, mixed> $venue Venue.
-	 * @return string
-	 */
-	private static function directions_url( array $venue ): string {
-		$to = '' !== $venue['lat'] && '' !== $venue['lng']
-			? $venue['lat'] . '%2C' . $venue['lng']
-			: rawurlencode( trim( $venue['name'] . ', ' . implode( ', ', array_filter( array( $venue['address'], $venue['city'] ) ) ), ', ' ) );
-		return 'https://www.openstreetmap.org/directions?to=' . $to;
 	}
 
 	/**
@@ -1757,6 +1754,7 @@ class Frontend {
 		$before = (string) apply_filters( 'rayec_single_before', $before, $event );
 
 		$after  = '<div class="rayec-single rayec-single--after' . self::theme_class() . '">';
+		$after .= Event_Page::good_to_know( $event, $times );
 		$after .= Registrations::render( $event, $times );
 		if ( ! empty( $event['venue'] ) && 'online' !== $event['format'] ) {
 			$after .= self::place( $event['venue'], (string) ( $event['room'] ?? '' ) );
@@ -1775,6 +1773,7 @@ class Frontend {
 			}
 			$after .= '</ul></section>';
 		}
+		$after .= Event_Page::more_like_this( $event );
 		$after .= '</div>';
 
 		/**
@@ -2025,6 +2024,18 @@ class Frontend {
 		}
 		if ( $locations ) {
 			$data['location'] = 1 === count( $locations ) ? $locations[0] : $locations;
+		}
+		if ( $event['doors'] && ! $event['all_day'] ) {
+			$data['doorTime'] = $times[0]->modify( '-' . (int) $event['doors'] . ' minutes' )->format( 'c' );
+		}
+		$min_age = array(
+			'12' => '12-',
+			'16' => '16-',
+			'18' => '18-',
+			'21' => '21-',
+		);
+		if ( isset( $min_age[ $event['age'] ] ) ) {
+			$data['typicalAgeRange'] = $min_age[ $event['age'] ];
 		}
 		if ( ! empty( $event['organizer'] ) ) {
 			$data['organizer'] = array_filter(

@@ -2474,3 +2474,464 @@
 		border: 1px solid CanvasText;
 	}
 }
+
+/* ------------------------------------------------------------ Good to know
+ * The facts a visitor checks before booking, as tiles with an icon each,
+ * then the cancellation policy. The icons are decorative; each tile names
+ * itself in words.
+ */
+.rayec-know__grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+	gap: 12px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-know__item {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	margin: 0;
+	padding: 14px;
+	border: 1px solid var(--rayec-line);
+	border-radius: var(--rayec-radius);
+	background: var(--rayec-soft);
+}
+
+.rayec-know__icon {
+	display: grid;
+	flex: none;
+	place-items: center;
+	width: 2.5rem;
+	height: 2.5rem;
+	border-radius: min(12px, var(--rayec-radius));
+	background: color-mix(in srgb, var(--rayec-accent) 12%, transparent);
+	color: var(--rayec-accent);
+}
+
+.rayec-know__icon .rayec-ico {
+	width: 1.25rem;
+	height: 1.25rem;
+	vertical-align: 0;
+}
+
+.rayec-know__text {
+	display: grid;
+	gap: 2px;
+	min-width: 0;
+}
+
+.rayec-know__label {
+	color: var(--rayec-muted);
+	font-size: 0.8125rem;
+	line-height: 1.3;
+}
+
+.rayec-know__value {
+	font-size: 1.0625rem;
+	font-weight: 600;
+	line-height: 1.3;
+	overflow-wrap: anywhere;
+}
+
+/* Narrow: two to a row, the icon above the words. */
+.rayec-know {
+	container-type: inline-size;
+}
+
+@container (max-width: 30rem) {
+	.rayec-know__grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 10px;
+	}
+
+	.rayec-know__item {
+		flex-direction: column;
+		gap: 10px;
+		align-items: flex-start;
+		padding: 12px;
+	}
+}
+
+.rayec-know__policy {
+	display: flex;
+	gap: 14px;
+	align-items: flex-start;
+	margin-top: 12px;
+	padding: 16px;
+	border: 1px solid var(--rayec-line);
+	border-inline-start: 3px solid var(--rayec-accent);
+	border-radius: var(--rayec-radius);
+}
+
+.rayec-know__heading {
+	margin: 0 0 4px;
+	font-size: 1rem;
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+.rayec-know__policy p {
+	margin: 0;
+	color: var(--rayec-muted);
+	font-size: 0.9375rem;
+	line-height: 1.5;
+}
+
+.rayec-know__policy p + p {
+	margin-top: 8px;
+}
+
+/* ------------------------------------------------------------ Getting here
+ * One button for each way of travelling. Plain links to the chosen map
+ * service; the route starts from wherever the visitor is.
+ */
+.rayec-place__info .rayec-route {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+	margin: 10px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-place:not(.has-map) .rayec-route {
+	grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+}
+
+.rayec-route li {
+	margin: 0;
+}
+
+.rayec-route__link {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	min-height: 48px;
+	padding: 10px 12px;
+	border: 1px solid var(--rayec-line);
+	border-radius: min(12px, var(--rayec-radius));
+	color: inherit;
+	font-size: 0.9375rem;
+	font-weight: 600;
+	line-height: 1.25;
+	text-decoration: none;
+}
+
+.rayec-route__link .rayec-ico {
+	flex: none;
+	width: 1.25rem;
+	height: 1.25rem;
+	color: var(--rayec-accent);
+}
+
+.rayec-route__link:hover,
+.rayec-route__link:focus-visible {
+	border-color: var(--rayec-accent);
+	background: color-mix(in srgb, var(--rayec-accent) 8%, transparent);
+}
+
+.rayec-place__info .rayec-route__note {
+	margin-top: 8px;
+	color: var(--rayec-muted);
+	font-size: 0.875rem;
+}
+
+/* ------------------------------------------------------------ More like this
+ * Up to three cards, then links to the calendar filtered by what this event
+ * belongs to. The whole card is the title's link; nothing else in it is.
+ */
+.rayec-related {
+	container-type: inline-size;
+}
+
+.rayec-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+	gap: 16px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	overflow: hidden;
+	border: 1px solid var(--rayec-line);
+	border-radius: var(--rayec-radius);
+	background: var(--rayec-bg, transparent);
+}
+
+.rayec-card:hover {
+	border-color: color-mix(in srgb, currentColor 30%, transparent);
+	box-shadow: 0 12px 28px -14px rgb(0 0 0 / 0.3);
+}
+
+.rayec-card:focus-within {
+	outline: 2px solid var(--rayec-accent);
+	outline-offset: 2px;
+}
+
+.rayec-card__title a:focus-visible {
+	outline: none;
+	text-decoration: underline;
+}
+
+.rayec-card__media {
+	position: relative;
+	aspect-ratio: 16 / 10;
+	overflow: hidden;
+	background: var(--rayec-soft);
+}
+
+.rayec-card__media img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.rayec-card__art {
+	display: grid;
+	place-items: center;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(135deg, color-mix(in srgb, var(--rayec-chip) 24%, transparent), color-mix(in srgb, var(--rayec-chip) 6%, transparent));
+	color: var(--rayec-chip);
+}
+
+.rayec-card__art .rayec-ico {
+	width: 40px;
+	height: 40px;
+}
+
+.rayec-card__date {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	display: grid;
+	justify-items: center;
+	min-width: 3rem;
+	padding: 6px 8px 7px;
+	border-radius: 10px;
+	background: #fff;
+	color: #15201f;
+	line-height: 1;
+	box-shadow: 0 2px 10px rgb(0 0 0 / 0.18);
+}
+
+.rayec-card__month {
+	color: #b42318;
+	font-size: 0.6875rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.rayec-card__day {
+	margin-top: 3px;
+	font-size: 1.375rem;
+	font-weight: 800;
+}
+
+.rayec-card__body {
+	display: grid;
+	flex: 1;
+	gap: 6px;
+	align-content: start;
+	padding: 14px 16px 16px;
+}
+
+.rayec-card__title {
+	margin: 0 0 2px;
+	font-size: 1.0625rem;
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+.rayec-card__title a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.rayec-card__title a::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+}
+
+.rayec-card__title a:hover {
+	text-decoration: underline;
+}
+
+.rayec-card__line {
+	display: flex;
+	gap: 8px;
+	align-items: flex-start;
+	margin: 0;
+	color: var(--rayec-muted);
+	font-size: 0.9375rem;
+	line-height: 1.4;
+}
+
+.rayec-card__line .rayec-ico {
+	flex: none;
+	margin-top: 0.15em;
+	margin-top: calc((1lh - 16px) / 2);
+}
+
+.rayec-card__places,
+.rayec-card__status {
+	margin: 4px 0 0;
+}
+
+.rayec-card .rayec-badge {
+	font-size: 0.6875rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.rayec-card {
+		transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+	}
+
+	.rayec-card:hover {
+		transform: translateY(-2px);
+	}
+
+	.rayec-card__media img {
+		transition: transform 0.4s ease;
+	}
+
+	.rayec-card:hover .rayec-card__media img {
+		transform: scale(1.04);
+	}
+}
+
+/* Narrow: each card a row, the picture beside the words. */
+@container (max-width: 33rem) {
+	.rayec-cards {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 12px;
+	}
+
+	.rayec-card {
+		display: grid;
+		grid-template-columns: 7rem minmax(0, 1fr);
+	}
+
+	.rayec-card__media {
+		aspect-ratio: auto;
+		min-height: 100%;
+	}
+
+	.rayec-card__date {
+		top: 8px;
+		left: 8px;
+		min-width: 2.5rem;
+		padding: 5px 6px 6px;
+	}
+
+	.rayec-card__day {
+		font-size: 1.125rem;
+	}
+
+	.rayec-card__body {
+		padding: 12px 14px;
+	}
+}
+
+.rayec-related__nav {
+	margin-top: 20px;
+}
+
+.rayec-explore {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-explore li {
+	margin: 0;
+}
+
+.rayec-explore a {
+	display: inline-flex;
+	gap: 8px;
+	align-items: center;
+	min-height: 44px;
+	padding: 8px 14px;
+	border: 1px solid var(--rayec-line);
+	border-radius: var(--rayec-btn-radius, 999px);
+	color: inherit;
+	font-size: 0.9375rem;
+	font-weight: 500;
+	line-height: 1.25;
+	text-decoration: none;
+}
+
+.rayec-explore a .rayec-ico:first-child {
+	color: var(--rayec-accent);
+}
+
+.rayec-explore a .rayec-ico:last-child {
+	opacity: 0.55;
+}
+
+.rayec-explore a:hover,
+.rayec-explore a:focus-visible {
+	border-color: currentColor;
+	background: var(--rayec-soft);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.rayec-explore a .rayec-ico:last-child {
+		transition: transform 0.2s ease;
+	}
+
+	.rayec-explore a:hover .rayec-ico:last-child {
+		transform: translateX(2px);
+	}
+}
+
+.rayec-theme--contrast .rayec-know__icon {
+	border: 2px solid currentColor;
+	background: transparent;
+	color: inherit;
+}
+
+.rayec-theme--contrast :is(.rayec-know__item, .rayec-know__policy, .rayec-route__link, .rayec-card, .rayec-explore a) {
+	border-width: 2px;
+	border-color: currentColor;
+}
+
+.rayec-theme--contrast :is(.rayec-route__link, .rayec-explore a, .rayec-card__line, .rayec-know__label, .rayec-know__policy p) {
+	color: inherit;
+}
+
+.rayec-theme--contrast .rayec-card__title a {
+	text-decoration: underline;
+}
+
+@media (forced-colors: active) {
+	.rayec-know__icon,
+	.rayec-know__item,
+	.rayec-know__policy,
+	.rayec-route__link,
+	.rayec-card,
+	.rayec-card__date,
+	.rayec-explore a {
+		border: 1px solid CanvasText;
+	}
+
+	.rayec-card:focus-within {
+		outline-color: Highlight;
+	}
+}

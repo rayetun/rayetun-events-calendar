@@ -118,6 +118,53 @@ class Event {
 	}
 
 	/**
+	 * Who an event is for, by age. The key is stored; the label is shown.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function ages(): array {
+		return array(
+			'all'    => __( 'All ages', 'rayetun-events-calendar' ),
+			'family' => __( 'Family friendly', 'rayetun-events-calendar' ),
+			'12'     => __( 'Ages 12 and over', 'rayetun-events-calendar' ),
+			'16'     => __( 'Ages 16 and over', 'rayetun-events-calendar' ),
+			'18'     => __( 'Ages 18 and over', 'rayetun-events-calendar' ),
+			'21'     => __( 'Ages 21 and over', 'rayetun-events-calendar' ),
+		);
+	}
+
+	/**
+	 * How long before the start the doors open, in minutes.
+	 *
+	 * @return int[]
+	 */
+	public static function door_minutes(): array {
+		return array( 15, 30, 45, 60, 90 );
+	}
+
+	/**
+	 * A stored age key, or '' when it is not one we know.
+	 *
+	 * @param mixed $value Submitted or stored value.
+	 * @return string
+	 */
+	public static function clean_age( $value ): string {
+		$value = (string) $value;
+		return isset( self::ages()[ $value ] ) ? $value : '';
+	}
+
+	/**
+	 * Minutes before the start that doors open, or 0 for not stated.
+	 *
+	 * @param mixed $value Submitted or stored value.
+	 * @return int
+	 */
+	public static function clean_doors( $value ): int {
+		$value = (int) $value;
+		return in_array( $value, self::door_minutes(), true ) ? $value : 0;
+	}
+
+	/**
 	 * Keep only known access features, in the order they are listed.
 	 *
 	 * @param mixed $raw Submitted or stored list.
@@ -199,6 +246,9 @@ class Event {
 			'rsvp'         => Registrations::defaults(),
 			'access'       => array(),
 			'access_notes' => '',
+			'age'          => '',
+			'doors'        => 0,
+			'policy'       => '',
 		);
 	}
 
@@ -321,6 +371,9 @@ class Event {
 			'rsvp'         => Registrations::settings( $id ),
 			'access'       => self::clean_access( get_post_meta( $id, '_rayec_event_access', true ) ),
 			'access_notes' => (string) get_post_meta( $id, '_rayec_event_access_notes', true ),
+			'age'          => self::clean_age( get_post_meta( $id, '_rayec_age', true ) ),
+			'doors'        => self::clean_doors( get_post_meta( $id, '_rayec_doors', true ) ),
+			'policy'       => (string) get_post_meta( $id, '_rayec_policy', true ),
 		);
 
 		/**
@@ -587,6 +640,15 @@ class Event {
 		}
 		if ( isset( $data['access_notes'] ) ) {
 			update_post_meta( $id, '_rayec_event_access_notes', sanitize_textarea_field( (string) $data['access_notes'] ) );
+		}
+		if ( isset( $data['age'] ) ) {
+			update_post_meta( $id, '_rayec_age', self::clean_age( $data['age'] ) );
+		}
+		if ( isset( $data['doors'] ) ) {
+			update_post_meta( $id, '_rayec_doors', self::clean_doors( $data['doors'] ) );
+		}
+		if ( isset( $data['policy'] ) ) {
+			update_post_meta( $id, '_rayec_policy', sanitize_textarea_field( (string) $data['policy'] ) );
 		}
 		if ( isset( $data['rsvp'] ) && is_array( $data['rsvp'] ) ) {
 			Registrations::save_settings( $id, $data['rsvp'] );

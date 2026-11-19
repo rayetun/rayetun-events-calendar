@@ -118,6 +118,40 @@ class Editor {
 		);
 		register_post_meta(
 			Post_Types::EVENT,
+			'_rayec_age',
+			array(
+				'type'              => 'string',
+				'single'            => true,
+				'show_in_rest'      => true,
+				'sanitize_callback' => array( Event::class, 'clean_age' ),
+				'auth_callback'     => $auth,
+			)
+		);
+		register_post_meta(
+			Post_Types::EVENT,
+			'_rayec_doors',
+			array(
+				'type'              => 'integer',
+				'single'            => true,
+				'default'           => 0,
+				'show_in_rest'      => true,
+				'sanitize_callback' => array( Event::class, 'clean_doors' ),
+				'auth_callback'     => $auth,
+			)
+		);
+		register_post_meta(
+			Post_Types::EVENT,
+			'_rayec_policy',
+			array(
+				'type'              => 'string',
+				'single'            => true,
+				'show_in_rest'      => true,
+				'sanitize_callback' => static fn( $value ) => sanitize_textarea_field( (string) $value ),
+				'auth_callback'     => $auth,
+			)
+		);
+		register_post_meta(
+			Post_Types::EVENT,
 			'_rayec_event_access_notes',
 			array(
 				'type'              => 'string',

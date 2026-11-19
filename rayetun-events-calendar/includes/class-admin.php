@@ -139,6 +139,16 @@ class Admin {
 			'siteName'       => get_bloginfo( 'name' ),
 			'accessFeatures' => Venue::access_features(),
 			'eventAccess'    => Event::access_features(),
+			// A list, not an object: "12" and "16" as object keys would sort first in JavaScript.
+			'ages'           => array_map(
+				static fn( $value, $label ) => array(
+					'value' => (string) $value,
+					'label' => $label,
+				),
+				array_keys( Event::ages() ),
+				array_values( Event::ages() )
+			),
+			'doorMinutes'    => Event::door_minutes(),
 			'categoryIcons'  => Frontend::category_icons(),
 			'dashboardUrl'   => admin_url( 'admin.php?page=' . self::PAGE_SLUG ),
 			'supportUrl'     => 'https://wordpress.org/support/plugin/rayetun-events-calendar/',

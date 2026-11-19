@@ -282,6 +282,56 @@ export default function Settings() {
 			),
 		},
 		{
+			key: 'directions',
+			label: __( 'Directions open in', 'rayetun-events-calendar' ),
+			help: __(
+				'The Walk, Cycle, Public transport and Drive buttons under a venue open the route from the visitor’s own location. They are plain links: nothing is loaded until a visitor presses one. OpenStreetMap has no public transport.',
+				'rayetun-events-calendar'
+			),
+			render: ( props ) => (
+				<SelectControl
+					{ ...props }
+					value={ form.directions || 'google' }
+					options={ [
+						{
+							label: __( 'Google Maps', 'rayetun-events-calendar' ),
+							value: 'google',
+						},
+						{
+							label: __( 'Apple Maps', 'rayetun-events-calendar' ),
+							value: 'apple',
+						},
+						{
+							label: __( 'OpenStreetMap', 'rayetun-events-calendar' ),
+							value: 'osm',
+						},
+					] }
+					onChange={ ( value ) => set( { directions: value } ) }
+				/>
+			),
+		},
+		{
+			key: 'related_events',
+			label: __(
+				'Show “More events like this” on event pages',
+				'rayetun-events-calendar'
+			),
+			help: __(
+				'Up to three coming events from the same categories, and links to the calendar for the category, venue and organiser.',
+				'rayetun-events-calendar'
+			),
+			toggle: true,
+			render: ( props ) => (
+				<ToggleControl
+					__nextHasNoMarginBottom
+					label={ props.label }
+					help={ props.help }
+					checked={ false !== form.related_events }
+					onChange={ ( value ) => set( { related_events: value } ) }
+				/>
+			),
+		},
+		{
 			key: 'list_per_page',
 			label: __( 'Events per page in the list view', 'rayetun-events-calendar' ),
 			help: __(

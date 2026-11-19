@@ -1514,7 +1514,7 @@ class Registrations {
 		$id      = (int) $event['id'];
 		$when    = Occurrences::split_range( $times[0], $times[1], (bool) $event['all_day'] );
 		$one_day = $times[0]->format( 'Y-m-d' ) === $times[1]->modify( '-1 second' )->format( 'Y-m-d' );
-		$rows = array(
+		$rows    = array(
 			// The box is narrow: a one-day date on one line, its weekday under it.
 			array(
 				'icon'  => 'calendar',
@@ -1528,7 +1528,7 @@ class Registrations {
 				'main'  => $when['time'],
 			),
 		);
-		$left = null;
+		$left    = null;
 		if ( $event['rsvp']['capacity'] ) {
 			$left   = self::left_on( $event, self::local_start( $event, $times[0] ) );
 			$places = self::places_text( $left, (int) $event['rsvp']['capacity'] );

@@ -31,6 +31,7 @@ import {
 import { Icon } from '../icons';
 import { Loading, ErrorNote } from './ui';
 import Attendees from './attendees';
+import GoodToKnow from './good-to-know';
 
 const RSVP_DEFAULTS = { enabled: false, capacity: 0, max: 1, access: true };
 
@@ -77,6 +78,9 @@ const blank = ( defaults = {} ) => {
 		rsvp: { ...RSVP_DEFAULTS },
 		access: [],
 		access_notes: '',
+		age: '',
+		doors: 0,
+		policy: '',
 	};
 };
 
@@ -670,6 +674,9 @@ export default function EventDrawer( { target, onClose } ) {
 			thumbnail_id: event.thumbnail_id || 0,
 			access: event.access || [],
 			access_notes: event.access_notes || '',
+			age: event.age || '',
+			doors: event.doors || 0,
+			policy: event.policy || '',
 			rsvp: {
 				enabled: !! rsvp.enabled,
 				capacity: Math.max( 0, parseInt( rsvp.capacity, 10 ) || 0 ),
@@ -1325,6 +1332,17 @@ export default function EventDrawer( { target, onClose } ) {
 						rows={ 2 }
 						value={ event.access_notes || '' }
 						onChange={ ( notes ) => set( { access_notes: notes } ) }
+					/>
+
+					<h3 className="rayec-form__section">
+						{ __( 'Good to know', 'rayetun-events-calendar' ) }
+					</h3>
+					<GoodToKnow
+						age={ event.age }
+						doors={ event.doors }
+						policy={ event.policy }
+						bookings={ !! rsvp.enabled }
+						onChange={ set }
 					/>
 
 					<h3 className="rayec-form__section">

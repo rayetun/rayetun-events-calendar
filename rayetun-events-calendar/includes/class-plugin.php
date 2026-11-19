@@ -81,6 +81,9 @@ class Plugin {
 			'show_past'         => false,
 			'theme'             => 'inherit',
 			'map_mode'          => 'ask',
+			// Where the travel-mode buttons open directions; only links, nothing loads until pressed.
+			'directions'        => 'google',
+			'related_events'    => true,
 			'list_per_page'     => 10,
 			'delete_data'       => false,
 			'closed_dates'      => array(),
@@ -154,6 +157,12 @@ class Plugin {
 		}
 		if ( isset( $input['map_mode'] ) && in_array( $input['map_mode'], array( 'ask', 'static', 'text' ), true ) ) {
 			$current['map_mode'] = $input['map_mode'];
+		}
+		if ( isset( $input['directions'] ) && in_array( $input['directions'], array( 'google', 'apple', 'osm' ), true ) ) {
+			$current['directions'] = $input['directions'];
+		}
+		if ( isset( $input['related_events'] ) ) {
+			$current['related_events'] = (bool) $input['related_events'];
 		}
 		if ( isset( $input['list_per_page'] ) ) {
 			$current['list_per_page'] = max( 1, min( 100, (int) $input['list_per_page'] ) );
