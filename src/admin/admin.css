@@ -2728,6 +2728,74 @@ p.rayec-import__note {
 	gap: 10px;
 }
 
+.rayec-attendees__tools {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+/* Writing to the people booked, in place in the panel. */
+.rayec-message {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	padding: 16px;
+	border: 1px solid var(--rayec-border);
+	border-radius: var(--rayec-radius-sm);
+	background: var(--rayec-canvas);
+}
+
+.rayec-message__title {
+	margin: 0;
+	color: var(--rayec-text);
+	font-size: 14px;
+	font-weight: 700;
+}
+
+.rayec-message__intro {
+	margin: 0;
+	color: var(--rayec-muted);
+	line-height: 1.5;
+}
+
+.rayec-message__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.rayec-attendees__sent > summary {
+	color: var(--rayec-text);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.rayec-attendees__sent ul {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin: 10px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-attendees__sent li {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 0;
+}
+
+.rayec-attendees__sent-subject {
+	color: var(--rayec-text);
+	font-weight: 600;
+}
+
+.rayec-attendees__sent-meta {
+	color: var(--rayec-muted);
+	font-size: 12px;
+}
+
 .rayec-attendees__title {
 	margin: 0;
 	color: var(--rayec-text);
@@ -2836,3 +2904,107 @@ p.rayec-import__note {
 	text-decoration: line-through;
 }
 
+
+/* The command palette: Ctrl or Cmd + K. */
+.rayec-top__kbd {
+	margin-inline-start: 6px;
+	padding: 1px 6px;
+	border: 1px solid var(--rayec-border);
+	border-radius: 4px;
+	color: var(--rayec-muted);
+	font-family: inherit;
+	font-size: 11px;
+	line-height: 1.6;
+}
+
+.rayec-palette-overlay.components-modal__screen-overlay {
+	align-items: flex-start;
+	padding-top: 12vh;
+}
+
+.rayec-palette.components-modal__frame {
+	width: 620px;
+	max-width: calc(100vw - 32px);
+	background: var(--rayec-surface);
+	color: var(--rayec-text);
+}
+
+.rayec-palette .components-modal__content {
+	padding-top: 8px;
+}
+
+.rayec-palette__search {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.rayec-palette__search input {
+	flex: 1;
+	min-height: 44px;
+	padding: 8px 12px;
+	border: 1px solid var(--rayec-border);
+	border-radius: var(--rayec-radius-sm);
+	background: var(--rayec-canvas);
+	color: var(--rayec-text);
+	font-size: 15px;
+}
+
+.rayec-palette__search input:focus {
+	border-color: var(--rayec-primary);
+	outline: 2px solid var(--rayec-primary);
+	outline-offset: 0;
+}
+
+.rayec-palette__list {
+	max-height: 50vh;
+	margin: 0;
+	padding: 0;
+	overflow-y: auto;
+	list-style: none;
+}
+
+.rayec-palette__item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-height: 40px;
+	margin: 0;
+	padding: 8px 10px;
+	border-radius: var(--rayec-radius-sm);
+	color: var(--rayec-text);
+	cursor: pointer;
+}
+
+/* The highlighted result is marked by a filled background and a bar at the
+   start, so it does not depend on colour alone. */
+.rayec-palette__item.is-active {
+	background: var(--rayec-tint);
+	box-shadow: inset 3px 0 0 var(--rayec-primary);
+}
+
+.rayec-palette__label {
+	flex: 1;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.rayec-palette__hint,
+.rayec-palette__none,
+.rayec-palette__keys {
+	color: var(--rayec-muted);
+	font-size: 12px;
+}
+
+.rayec-palette__keys {
+	margin: 10px 0 0;
+	padding-top: 10px;
+	border-top: 1px solid var(--rayec-border);
+}
+
+@media (forced-colors: active) {
+	.rayec-palette__item.is-active {
+		outline: 2px solid Highlight;
+	}
+}

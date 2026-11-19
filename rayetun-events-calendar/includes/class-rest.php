@@ -83,6 +83,7 @@ class Rest {
 			array( '/events/(?P<id>\d+)/series-restore', WP_REST_Server::CREATABLE, 'restore_series', $edit, $id_arg ),
 			array( '/events/(?P<id>\d+)/registrations', WP_REST_Server::READABLE, 'list_registrations', $edit, $id_arg ),
 			array( '/registrations/(?P<id>\d+)', WP_REST_Server::EDITABLE, 'update_registration', $edit, $id_arg ),
+			array( '/events/(?P<id>\d+)/message', WP_REST_Server::CREATABLE, 'message_registrants', $edit, $id_arg ),
 			array( '/guard', WP_REST_Server::CREATABLE, 'guard_check', $edit ),
 			array( '/categories/(?P<id>\d+)', WP_REST_Server::EDITABLE, 'save_category', $manage, $id_arg ),
 			array( '/categories/(?P<id>\d+)', WP_REST_Server::DELETABLE, 'delete_category', $manage, $id_arg ),
@@ -521,12 +522,20 @@ class Rest {
 	/**
 	 * Occurrence row as the app expects it.
 	 *
-	 * @param object               $row   Occurrence row.
-	 * @param array<string, mixed> $event Event data.
+	 * @param object                  $row   Occurrence row.
+	 * @param array<string, mixed>    $event Event data.
+	 * @param array<string, int>|null $taken Places held, from Registrations::taken_for_rows(), when already read.
 	 * @return array<string, mixed>
 	 */
-	public static function occurrence_view( object $row, array $event ): array {
+	public static function occurrence_view( object $row, array $event, ?array $taken = null ): array {
 		list( $start, $end ) = Occurrences::times( $row );
+
+		// Places booked on this date, for events taking registrations.
+		$booked = null;
+		if ( ! empty( $event['rsvp']['enabled'] ) ) {
+			$taken  = null !== $taken ? $taken : Registrations::taken_for_rows( array( $row ) );
+			$booked = $taken[ (int) $row->event_id . '|' . $row->start_local ] ?? 0;
+		}
 
 		return array(
 			'id'           => (int) $row->id,
@@ -552,6 +561,8 @@ class Rest {
 			'rrule_text'   => $event['rrule_text'],
 			'format'       => $event['format'],
 			'permalink'    => $event['permalink'],
+			'booked'       => $booked,
+			'capacity'     => null !== $booked ? (int) $event['rsvp']['capacity'] : null,
 		);
 	}
 
@@ -564,6 +575,7 @@ class Rest {
 	private static function occurrence_views( array $rows ): array {
 		Event::prime( wp_list_pluck( $rows, 'event_id' ) );
 
+		$taken  = Registrations::taken_for_rows( $rows );
 		$events = array();
 		$out    = array();
 		foreach ( $rows as $row ) {
@@ -572,7 +584,7 @@ class Rest {
 				$events[ $event_id ] = Event::get( $event_id );
 			}
 			if ( $events[ $event_id ] ) {
-				$out[] = self::occurrence_view( $row, $events[ $event_id ] );
+				$out[] = self::occurrence_view( $row, $events[ $event_id ], $taken );
 			}
 		}
 		return $out;
@@ -687,6 +699,13 @@ class Rest {
 			}
 		}
 
+		$today_views = self::occurrence_views( $today_rows );
+		$week_views  = self::occurrence_views( $week_rows );
+		$booked      = 0;
+		foreach ( array_merge( $today_views, $week_views ) as $view ) {
+			$booked += (int) $view['booked'];
+		}
+
 		return array(
 			'stats'       => array(
 				'upcoming'  => count( $upcoming_ids ),
@@ -694,9 +713,11 @@ class Rest {
 				'recurring' => $recurring,
 				'venues'    => (int) ( $venues->publish ?? 0 ),
 				'drafts'    => (int) ( $counts->draft ?? 0 ) + (int) ( $counts->pending ?? 0 ),
+				'booked'    => $booked,
+				'rsvp'      => Registrations::in_use(),
 			),
-			'today'       => self::occurrence_views( $today_rows ),
-			'week'        => self::occurrence_views( $week_rows ),
+			'today'       => $today_views,
+			'week'        => $week_views,
 			'a11y'        => array(
 				'score'   => $checked ? (int) round( $total / $checked ) : null,
 				'checked' => $checked,
@@ -862,7 +883,37 @@ class Rest {
 			'capacity'      => (int) $event['rsvp']['capacity'],
 			'dates'         => array_values( $dates ),
 			'registrations' => array_map( array( __CLASS__, 'registration_view' ), $rows ),
+			'messages'      => Registrations::messages_sent( $event ),
 		);
+	}
+
+	/**
+	 * Email the people booked on one coming date, or on every coming date.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return array<string, int>|WP_Error
+	 */
+	public static function message_registrants( WP_REST_Request $request ) {
+		$event = Event::get( (int) $request['id'] );
+		if ( ! $event || ! current_user_can( 'edit_post', $event['id'] ) ) {
+			return new WP_Error( 'rayec_not_found', __( 'That event no longer exists.', 'rayetun-events-calendar' ), array( 'status' => 404 ) );
+		}
+
+		$start   = (string) $request->get_param( 'start' );
+		$subject = trim( sanitize_text_field( (string) $request->get_param( 'subject' ) ) );
+		$message = trim( sanitize_textarea_field( (string) $request->get_param( 'message' ) ) );
+
+		if ( '' !== $start && ! preg_match( '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $start ) ) {
+			return new WP_Error( 'rayec_bad_date', __( 'That is not one of the event’s dates.', 'rayetun-events-calendar' ), array( 'status' => 400 ) );
+		}
+		if ( '' === $subject || mb_strlen( $subject ) > 150 ) {
+			return new WP_Error( 'rayec_subject', __( 'Give the email a subject of up to 150 characters.', 'rayetun-events-calendar' ), array( 'status' => 400 ) );
+		}
+		if ( '' === $message || mb_strlen( $message ) > 5000 ) {
+			return new WP_Error( 'rayec_message', __( 'Write a message of up to 5,000 characters.', 'rayetun-events-calendar' ), array( 'status' => 400 ) );
+		}
+
+		return Registrations::send_message( $event, $start, $subject, $message );
 	}
 
 	/**

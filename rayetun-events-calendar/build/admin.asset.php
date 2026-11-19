@@ -4,9 +4,10 @@
 		'wp-a11y',
 		'wp-api-fetch',
 		'wp-components',
+		'wp-dom-ready',
 		'wp-element',
 		'wp-hooks',
 		'wp-i18n'
 	),
-	'version' => '7e83c32bbc3339fe2bc1'
+	'version' => '6bf0aa628a4d2719b184'
 );

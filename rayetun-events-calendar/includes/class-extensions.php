@@ -5,6 +5,18 @@
  * The free plugin contains no premium code. A separate add-on plugin connects
  * itself through the hooks documented here.
  *
+ * @package RayEtun\EventsCalendar
+ */
+
+namespace RayEtun\EventsCalendar;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Add-on registry, and the list of every hook an add-on can use.
+ *
  * PHP hooks
  * - action `rayec_loaded`            Fires once the free plugin is ready. Add-ons boot here.
  * - filter `rayec_addons`            Register an add-on: array( 'slug' => array( 'name' => '', 'version' => '' ) ).
@@ -24,28 +36,36 @@
  * - filter `rayec_registration_status`     The status a new registration starts with: "confirmed" or "pending".
  * - filter `rayec_registration_when_full`  Return "waitlisted" to accept a registration on a full date.
  * - filter `rayec_registration_redirect`   Where someone goes after registering (a checkout, say).
+ * - filter `rayec_registration_rate_limit` New bookings one connection may make in an hour (20; 0 for no limit).
+ * - filter `rayec_few_places_left`        How few places left is shown on the calendar (a fifth, at least 3).
  * - filter `rayec_registration_email`      A registration email before it is sent.
  * - filter `rayec_registration_admin_statuses`  Statuses an organiser can set from the dashboard.
  * - action `rayec_registration_created`    After a registration is written: ( $id, $event, $token ).
  * - action `rayec_registration_status_changed`  ( $id, $status, $old, $by ).
  * - action `rayec_event_status_changed`   An event was cancelled, postponed, moved online or reinstated: ( $id, $new, $old ). Fires however the status was changed.
  *
+ * - filter `rayec_settings_defaults`   Defaults for an add-on's own settings keys.
+ * - filter `rayec_sanitize_settings`   ( $current, $input ): copy an add-on's keys across, cleaned.
+ *
  * JavaScript hooks (wp.hooks)
  * - filter `rayec.screens`           Add dashboard screens: { path, label, icon, component }.
  * - filter `rayec.eventPayload`      Change the data sent when an event is saved from the drawer.
  * - filter `rayec.attendeeColumns`   Add columns to the attendee list: { key, label, value( registration ) }.
+ * - filter `rayec.drawerPanels`      Sections in the event drawer: { key, title, render( { event, set } ) }.
+ *                                    Save their fields with `rayec.eventPayload`.
+ * - filter `rayec.settingsFields`    Fields on the Settings screen: { key, label, help, render( props ) },
+ *                                    given { form, set }. They save with the rest; clean them in PHP.
+ * - filter `rayec.homeCards`         Cards on Home: { key, render( dashboardData ) }.
+ * - filter `rayec.eventsColumns`     Columns after the built-in ones on Events: { key, label, value( event ) }.
+ * - filter `rayec.eventsBulkActions` Bulk actions on Events: { action, label, run( ids ) }, where run
+ *                                    returns a promise of the message to show.
  *
- * @package RayEtun\EventsCalendar
- */
-
-namespace RayEtun\EventsCalendar;
-
-if ( ! defined( 'ABSPATH' ) ) {
-	exit;
-}
-
-/**
- * Add-on registry.
+ * Every JavaScript filter is read once all the scripts on the page have run, so
+ * an add-on's script may load before the dashboard's or after it.
+ *
+ * `window.rayec.ui` holds the dashboard's own components (Panel, Empty, Loading,
+ * ErrorNote, PageHeader, StatusBadges, OccurrenceRow, Icon, bookedLabel, useLoad)
+ * and `api`, `useApp` and `config`, so an add-on's screens look like the rest.
  */
 class Extensions {
 

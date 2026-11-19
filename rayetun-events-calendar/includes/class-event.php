@@ -98,6 +98,37 @@ class Event {
 	}
 
 	/**
+	 * Access the organiser provides at the event itself.
+	 *
+	 * A venue's features describe the building and stay the same from one
+	 * event to the next; these describe what is laid on for this event, and
+	 * they mean as much online as in a hall.
+	 *
+	 * @return array<string, string> key => label.
+	 */
+	public static function access_features(): array {
+		return array(
+			'captions'          => __( 'Live captions', 'rayetun-events-calendar' ),
+			'sign_language'     => __( 'Sign language interpretation', 'rayetun-events-calendar' ),
+			'audio_description' => __( 'Audio description', 'rayetun-events-calendar' ),
+			'relaxed'           => __( 'Relaxed session', 'rayetun-events-calendar' ),
+			'easy_read'         => __( 'Easy-read materials', 'rayetun-events-calendar' ),
+			'companion_free'    => __( 'Free place for a companion', 'rayetun-events-calendar' ),
+		);
+	}
+
+	/**
+	 * Keep only known access features, in the order they are listed.
+	 *
+	 * @param mixed $raw Submitted or stored list.
+	 * @return string[]
+	 */
+	public static function clean_access( $raw ): array {
+		$raw = is_array( $raw ) ? array_map( 'strval', $raw ) : array();
+		return array_values( array_intersect( array_keys( self::access_features() ), $raw ) );
+	}
+
+	/**
 	 * A valid time zone object for a stored value.
 	 *
 	 * @param string $name Time zone name.
@@ -166,6 +197,8 @@ class Event {
 			'categories'   => array(),
 			'thumbnail_id' => 0,
 			'rsvp'         => Registrations::defaults(),
+			'access'       => array(),
+			'access_notes' => '',
 		);
 	}
 
@@ -286,6 +319,8 @@ class Event {
 			'categories'   => $categories,
 			'thumbnail_id' => $thumbnail_id,
 			'rsvp'         => Registrations::settings( $id ),
+			'access'       => self::clean_access( get_post_meta( $id, '_rayec_event_access', true ) ),
+			'access_notes' => (string) get_post_meta( $id, '_rayec_event_access_notes', true ),
 		);
 
 		/**
@@ -547,6 +582,12 @@ class Event {
 			wp_set_object_terms( $id, array_map( 'intval', $data['category_ids'] ), Post_Types::CATEGORY );
 		}
 
+		if ( isset( $data['access'] ) && is_array( $data['access'] ) ) {
+			update_post_meta( $id, '_rayec_event_access', self::clean_access( $data['access'] ) );
+		}
+		if ( isset( $data['access_notes'] ) ) {
+			update_post_meta( $id, '_rayec_event_access_notes', sanitize_textarea_field( (string) $data['access_notes'] ) );
+		}
 		if ( isset( $data['rsvp'] ) && is_array( $data['rsvp'] ) ) {
 			Registrations::save_settings( $id, $data['rsvp'] );
 		}

@@ -73,7 +73,7 @@ class Plugin {
 	 * @return array<string, mixed>
 	 */
 	public static function default_settings(): array {
-		return array(
+		$defaults = array(
 			'default_view'      => 'month',
 			'week_starts_on'    => (int) get_option( 'start_of_week', 1 ),
 			'time_format'       => '',
@@ -87,7 +87,16 @@ class Plugin {
 			// Email the organiser about each registration; an empty address means the site's.
 			'rsvp_notify'       => true,
 			'rsvp_notify_email' => '',
+			'booking_layout'    => 'card',
 		);
+
+		/**
+		 * Filters the default settings. Add-ons add their own keys here, so the
+		 * values stored with the plugin's own always have something to fall back to.
+		 *
+		 * @param array<string, mixed> $defaults Defaults.
+		 */
+		return (array) apply_filters( 'rayec_settings_defaults', $defaults );
 	}
 
 	/**
@@ -156,6 +165,9 @@ class Plugin {
 		if ( isset( $input['rsvp_notify'] ) ) {
 			$current['rsvp_notify'] = (bool) $input['rsvp_notify'];
 		}
+		if ( isset( $input['booking_layout'] ) && isset( Registrations::layouts()[ (string) $input['booking_layout'] ] ) ) {
+			$current['booking_layout'] = (string) $input['booking_layout'];
+		}
 		if ( isset( $input['rsvp_notify_email'] ) ) {
 			$current['rsvp_notify_email'] = sanitize_email( (string) $input['rsvp_notify_email'] );
 		}
@@ -175,6 +187,15 @@ class Plugin {
 			$changed                 = wp_json_encode( array_values( $closed ) ) !== wp_json_encode( $current['closed_dates'] );
 			$current['closed_dates'] = array_values( $closed );
 		}
+
+		/**
+		 * Filters settings before they are saved. Add-ons copy their own keys
+		 * across from the input here, cleaned; anything not copied is not saved.
+		 *
+		 * @param array<string, mixed> $current Settings to save.
+		 * @param array<string, mixed> $input   What was submitted.
+		 */
+		$current = (array) apply_filters( 'rayec_sanitize_settings', $current, $input );
 
 		update_option( self::SETTINGS_OPTION, $current, false );
 

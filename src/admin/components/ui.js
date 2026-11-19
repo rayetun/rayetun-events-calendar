@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from '@wordpress/element';
 import { Spinner, Popover } from '@wordpress/components';
-import { __ } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 
 import { api, useApp } from '../lib';
 import { Icon } from '../icons';
@@ -155,6 +155,32 @@ export function StatusBadges( { eventStatus, postStatus } ) {
  * @param {Object} props
  * @param {Object} props.item Occurrence.
  */
+/**
+ * "8 of 12 booked", or "3 booked" when there is no limit; empty when the
+ * event takes no registrations.
+ *
+ * @param {number|null} booked   Places booked.
+ * @param {number|null} capacity Places on the date, 0 for no limit.
+ * @return {string} Label.
+ */
+export function bookedLabel( booked, capacity ) {
+	if ( booked === null || booked === undefined ) {
+		return '';
+	}
+	return capacity
+		? sprintf(
+				/* translators: 1: places booked, 2: places in total. */
+				__( '%1$d of %2$d booked', 'rayetun-events-calendar' ),
+				booked,
+				capacity
+		  )
+		: sprintf(
+				/* translators: %d: places booked. */
+				_n( '%d booked', '%d booked', booked, 'rayetun-events-calendar' ),
+				booked
+		  );
+}
+
 export function OccurrenceRow( { item } ) {
 	const { openEvent } = useApp();
 	const [ peekProps, peek ] = usePeek( item );
@@ -194,6 +220,9 @@ export function OccurrenceRow( { item } ) {
 				<span className="rayec-occ__meta">
 					{ item.when_label }
 					{ item.venue_name ? ` · ${ item.venue_name }` : '' }
+					{ bookedLabel( item.booked, item.capacity )
+						? ` · ${ bookedLabel( item.booked, item.capacity ) }`
+						: '' }
 				</span>
 			</button>
 			<StatusBadges

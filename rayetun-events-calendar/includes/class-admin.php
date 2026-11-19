@@ -138,6 +138,7 @@ class Admin {
 			'userName'       => $user->display_name,
 			'siteName'       => get_bloginfo( 'name' ),
 			'accessFeatures' => Venue::access_features(),
+			'eventAccess'    => Event::access_features(),
 			'categoryIcons'  => Frontend::category_icons(),
 			'dashboardUrl'   => admin_url( 'admin.php?page=' . self::PAGE_SLUG ),
 			'supportUrl'     => 'https://wordpress.org/support/plugin/rayetun-events-calendar/',

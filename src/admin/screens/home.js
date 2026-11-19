@@ -1,5 +1,6 @@
 import { useState } from '@wordpress/element';
 import { Button } from '@wordpress/components';
+import { applyFilters } from '@wordpress/hooks';
 import { __, sprintf, _n } from '@wordpress/i18n';
 
 import { api, config, useApp } from '../lib';
@@ -381,6 +382,18 @@ export default function Home() {
 					label={ __( 'Drafts', 'rayetun-events-calendar' ) }
 					href="#/events"
 				/>
+				{ stats.rsvp && (
+					<Stat
+						icon="users"
+						tone="teal"
+						value={ stats.booked }
+						label={ __(
+							'Places booked, next 7 days',
+							'rayetun-events-calendar'
+						) }
+						href="#/events"
+					/>
+				) }
 			</div>
 
 			<div className="rayec-cols">
@@ -457,6 +470,11 @@ export default function Home() {
 							</Empty>
 						) }
 					</Panel>
+					{ applyFilters( 'rayec.homeCards', [], data ).map(
+						( card ) => (
+							<div key={ card.key }>{ card.render( data ) }</div>
+						)
+					) }
 				</div>
 
 				<div className="rayec-cols__side">

@@ -5,6 +5,7 @@ import { applyFilters } from '@wordpress/hooks';
 
 import { api, useApp } from '../lib';
 import { ErrorNote } from './ui';
+import MessagePeople, { peopleToWrite } from './message-people';
 
 const statusLabel = ( status ) =>
 	( {
@@ -48,6 +49,7 @@ export default function Attendees( { eventId } ) {
 	const [ error, setError ] = useState( '' );
 	const [ busy, setBusy ] = useState( 0 );
 	const [ showPast, setShowPast ] = useState( false );
+	const [ writing, setWriting ] = useState( false );
 
 	const load = () =>
 		api
@@ -194,6 +196,8 @@ export default function Attendees( { eventId } ) {
 	const total = data.registrations
 		.filter( ( row ) => row.status !== 'cancelled' )
 		.reduce( ( sum, row ) => sum + row.places, 0 );
+	const reachable = peopleToWrite( data ).all;
+	const messages = data.messages || [];
 
 	return (
 		<div className="rayec-attendees">
@@ -201,16 +205,40 @@ export default function Attendees( { eventId } ) {
 				<h4 className="rayec-attendees__title">
 					{ __( 'Who is coming', 'rayetun-events-calendar' ) }
 				</h4>
-				{ data.registrations.length > 0 && (
-					<Button
-						variant="secondary"
-						size="compact"
-						onClick={ download }
-					>
-						{ __( 'Download CSV', 'rayetun-events-calendar' ) }
-					</Button>
-				) }
+				<div className="rayec-attendees__tools">
+					{ reachable > 0 && ! writing && (
+						<Button
+							variant="secondary"
+							size="compact"
+							onClick={ () => setWriting( true ) }
+						>
+							{ __( 'Email people', 'rayetun-events-calendar' ) }
+						</Button>
+					) }
+					{ data.registrations.length > 0 && (
+						<Button
+							variant="secondary"
+							size="compact"
+							onClick={ download }
+						>
+							{ __( 'Download CSV', 'rayetun-events-calendar' ) }
+						</Button>
+					) }
+				</div>
 			</div>
+
+			{ writing && (
+				<MessagePeople
+					eventId={ eventId }
+					data={ data }
+					onDone={ ( sent ) => {
+						setWriting( false );
+						if ( sent ) {
+							load();
+						}
+					} }
+				/>
+			) }
 
 			<p className="rayec-attendees__summary">
 				{ data.registrations.length === 0
@@ -375,6 +403,46 @@ export default function Attendees( { eventId } ) {
 					</section>
 				);
 			} ) }
+
+			{ messages.length > 0 && (
+				<details className="rayec-attendees__sent">
+					<summary>
+						{ sprintf(
+							/* translators: %d: number of emails written to the people booked. */
+							_n(
+								'%d message sent',
+								'%d messages sent',
+								messages.length,
+								'rayetun-events-calendar'
+							),
+							messages.length
+						) }
+					</summary>
+					<ul>
+						{ messages.map( ( item, index ) => (
+							<li key={ index }>
+								<span className="rayec-attendees__sent-subject">
+									{ item.subject }
+								</span>
+								<span className="rayec-attendees__sent-meta">
+									{ sprintf(
+										/* translators: 1: when it was sent, 2: which dates, 3: number of people. */
+										_n(
+											'%1$s · %2$s · %3$d person',
+											'%1$s · %2$s · %3$d people',
+											item.people,
+											'rayetun-events-calendar'
+										),
+										item.time,
+										item.to,
+										item.people
+									) }
+								</span>
+							</li>
+						) ) }
+					</ul>
+				</details>
+			) }
 
 			{ past.length > 0 && (
 				<Button

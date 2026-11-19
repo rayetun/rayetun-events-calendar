@@ -35,7 +35,15 @@ $admins = get_users(
 wp_set_current_user( (int) ( $admins[0] ?? 0 ) );
 
 // Anything an interrupted earlier run left behind.
-foreach ( get_posts( array( 'post_type' => 'rayec_event', 'post_status' => 'any', 's' => 'RSVP check:', 'fields' => 'ids', 'posts_per_page' => 20 ) ) as $stale ) {
+foreach ( get_posts(
+	array(
+		'post_type'      => 'rayec_event',
+		'post_status'    => 'any',
+		's'              => 'RSVP check:',
+		'fields'         => 'ids',
+		'posts_per_page' => 20,
+	)
+) as $stale ) {
 	if ( 0 === strpos( get_the_title( $stale ), 'RSVP check:' ) ) {
 		wp_delete_post( $stale, true );
 	}
@@ -107,8 +115,8 @@ $a     = Registrations::register(
 );
 $check( 'Ada books 2 places', is_array( $a ) && 'confirmed' === $a['status'] && ! $a['existing'] );
 if ( ! is_array( $a ) ) {
-	echo '  stopped: ' . $a->get_error_message() . "
-";
+	echo '  stopped: ' . $a->get_error_message() . '
+';
 	exit( 1 );
 }
 $check( 'Ada is emailed, and so is the organiser', 2 === count( $mails ) && 'ada@example.com' === $mails[0]['to'] );
@@ -299,7 +307,19 @@ $series = Event::get( $sid );
 $after  = Registrations::upcoming_dates( $series );
 $check( 'after the series is saved again, the first date is still full', 0 === $after[0]['left'] && 0 === $after[1]['left'] && 1 === $after[2]['left'] );
 
-$check( 'a date that is not in the series is refused', is_wp_error( Registrations::register( $series, array( 'start' => '2001-01-01 18:00:00', 'name' => 'Old', 'email' => 'old@example.com' ) ) ) );
+$check(
+	'a date that is not in the series is refused',
+	is_wp_error(
+		Registrations::register(
+			$series,
+			array(
+				'start' => '2001-01-01 18:00:00',
+				'name'  => 'Old',
+				'email' => 'old@example.com',
+			)
+		)
+	)
+);
 
 
 // The series moves to 7pm: each booking keeps its date.
@@ -332,7 +352,7 @@ $result  = $rest(
 		'new_date' => $moved,
 	)
 );
-$yas = Registrations::get( $z['id'] );
+$yas     = Registrations::get( $z['id'] );
 $check( 'moving her date on its own takes her booking to the new event', is_array( $result ) && (int) $yas->event_id === (int) $result['created'] && $moved . ' 19:00:00' === $yas->occurrence_start );
 $check( 'and books her a "new time" email', $job( (int) $result['created'], 'moved_ids', array( (int) $z['id'] ) ) );
 $rest( 'series-restore', $result['undo'] );
@@ -380,6 +400,88 @@ $p      = Registrations::register(
 	)
 );
 $check( 'a postponed event takes no registrations', is_wp_error( $p ) && 'rayec_rsvp_closed' === $p->get_error_code() );
+
+/*
+ * Places on the calendar.
+ */
+echo "\nPlaces on the calendar\n";
+$twelve = array( 'rsvp' => array( 'capacity' => 12 ) );
+$check( 'with 12 places, 3 left is worth saying and 4 is not', Registrations::few_left( $twelve, 3 ) && ! Registrations::few_left( $twelve, 4 ) );
+$check( 'a full date is not "few left": it says Full instead', ! Registrations::few_left( $twelve, 0 ) );
+$check( 'with 100 places, a fifth is the line', Registrations::few_left( array( 'rsvp' => array( 'capacity' => 100 ) ), 20 ) && ! Registrations::few_left( array( 'rsvp' => array( 'capacity' => 100 ) ), 21 ) );
+$check( 'with no limit, nothing is ever "few left"', ! Registrations::few_left( array( 'rsvp' => array( 'capacity' => 0 ) ), 1 ) );
+$check( 'a postponed event has no booking box beside its page', '' === Registrations::aside( $series, array( new DateTimeImmutable( '+2 days' ), new DateTimeImmutable( '+2 days 1 hour' ) ) ) );
+
+/*
+ * The organiser writes to the people booked.
+ */
+echo "\nEmail the people booked\n";
+$note_id    = Event::save(
+	array(
+		'title'       => 'RSVP check: message',
+		'start'       => $tomorrow,
+		'timezone'    => $tz->getName(),
+		'post_status' => 'publish',
+		'rsvp'        => array(
+			'enabled'  => true,
+			'capacity' => 40,
+			'max'      => 1,
+		),
+	)
+);
+$made[]     = $note_id;
+$note_event = Event::get( $note_id );
+$note_start = Registrations::upcoming_dates( $note_event )[0]['start'];
+$booked     = array();
+for ( $i = 1; $i <= 23; $i++ ) {
+	$booked[] = Registrations::register(
+		$note_event,
+		array(
+			'start'  => $note_start,
+			'name'   => "Guest {$i}",
+			'email'  => "guest{$i}@example.com",
+			'places' => 1,
+		)
+	);
+}
+Registrations::set_status( $booked[22]['id'], 'cancelled', 'organiser' );
+$mails = array();
+$sent  = Registrations::send_message( $note_event, '', 'Room change', "We have moved to Room 4.\nSee you there." );
+$check( 'it reaches the 22 still booked, 20 at once and 2 later', is_array( $sent ) && 22 === $sent['people'] && 20 === $sent['sent'] && 2 === $sent['queued'], wp_json_encode( $sent ) );
+$check( 'one email each, with the subject as written', 20 === count( $mails ) && 'Room change' === $mails[0]['subject'] && 'guest1@example.com' === $mails[0]['to'] );
+$check( 'each starts with the name and ends with what they booked', 0 === strpos( $mails[0]['message'], 'Hello Guest 1,' ) && false !== strpos( $mails[0]['message'], 'Room 4' ) && false !== strpos( $mails[0]['message'], 'RSVP check: message' ) && false !== strpos( $mails[0]['message'], 'confirmation email cancels' ) );
+$queue = (array) get_option( Registrations::MESSAGE_QUEUE, array() );
+$key   = (string) array_key_first( $queue );
+$check( 'the rest wait in the queue, with a job booked', 1 === count( $queue ) && 2 === count( $queue[ $key ]['groups'] ) && false !== wp_next_scheduled( Registrations::MESSAGE_HOOK, array( $key ) ) );
+// Someone in the second batch cancels before it goes.
+Registrations::set_status( $booked[21]['id'], 'cancelled', 'organiser' );
+$mails = array();
+wp_unschedule_event( (int) wp_next_scheduled( Registrations::MESSAGE_HOOK, array( $key ) ), Registrations::MESSAGE_HOOK, array( $key ) );
+$check( 'the next batch skips anyone who cancelled since', 1 === Registrations::send_message_batch( $key ) && 1 === count( $mails ) && 'guest21@example.com' === $mails[0]['to'] );
+$check( 'and the queue is empty after it', false === get_option( Registrations::MESSAGE_QUEUE ) && false === wp_next_scheduled( Registrations::MESSAGE_HOOK, array( $key ) ) );
+$log = Registrations::messages_sent( $note_event );
+$check( 'the message is recorded for the panel', 1 === count( $log ) && 'Room change' === $log[0]['subject'] && 22 === $log[0]['people'] );
+$past = Registrations::send_message( $note_event, '2000-01-01 10:00:00', 'Late', 'Too late.' );
+$check( 'a date that has passed is refused', is_wp_error( $past ) && 'rayec_past' === $past->get_error_code() );
+$none = Registrations::send_message( $note_event, '2099-01-01 10:00:00', 'Nobody', 'Nobody here.' );
+$check( 'a date nobody booked is refused', is_wp_error( $none ) && 'rayec_nobody' === $none->get_error_code() );
+$rest = new WP_REST_Request( 'POST', '/rayec/v1/events/' . $note_id . '/message' );
+$rest->set_body_params(
+	array(
+		'subject' => '',
+		'message' => 'No subject.',
+	)
+);
+$check( 'over REST, a message with no subject is refused', 400 === rest_do_request( $rest )->get_status() );
+wp_set_current_user( 0 );
+$rest->set_body_params(
+	array(
+		'subject' => 'Hello',
+		'message' => 'From nobody.',
+	)
+);
+$check( 'and someone not signed in cannot send at all', in_array( rest_do_request( $rest )->get_status(), array( 401, 403 ), true ) );
+wp_set_current_user( (int) ( $admins[0] ?? 0 ) );
 
 /*
  * Personal data.

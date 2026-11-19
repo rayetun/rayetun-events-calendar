@@ -107,21 +107,27 @@ class Frontend {
 				'category'        => 'widgets',
 				'icon'            => 'calendar-alt',
 				'keywords'        => array( 'events', 'calendar', 'schedule' ),
-				'attributes'      => array(
-					'view'     => array(
-						'type'    => 'string',
-						'default' => '',
-						'enum'    => array( '', 'month', 'week', 'day', 'list' ),
+				'attributes'      => array_merge(
+					array(
+						'view'     => array(
+							'type'    => 'string',
+							'default' => '',
+							'enum'    => array( '', 'month', 'week', 'day', 'list' ),
+						),
+						'category' => array(
+							'type'    => 'integer',
+							'default' => 0,
+						),
 					),
-					'category' => array(
-						'type'    => 'integer',
-						'default' => 0,
-					),
+					self::look_attributes()
 				),
-				'supports'        => array(
-					'align'         => array( 'wide', 'full' ),
-					'html'          => false,
-					'interactivity' => true,
+				'supports'        => array_merge(
+					self::look_supports(),
+					array(
+						'align'         => array( 'wide', 'full' ),
+						'html'          => false,
+						'interactivity' => true,
+					)
 				),
 				'editor_script'   => is_readable( $asset_file ) ? 'rayec-calendar-block' : null,
 				'editor_style'    => 'rayec-frontend',
@@ -144,6 +150,142 @@ class Frontend {
 	}
 
 	/**
+	 * The attributes every block has for its look.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	public static function look_attributes(): array {
+		return array(
+			'accent'  => array(
+				'type'    => 'string',
+				'default' => '',
+			),
+			'corners' => array(
+				'type'    => 'string',
+				'default' => '',
+				'enum'    => array( '', 'square', 'round' ),
+			),
+		);
+	}
+
+	/**
+	 * The editor's own style settings every block offers: text and background
+	 * colour, text size, and the space around it. They go on the block's
+	 * outer element, and everything inside is sized and coloured from that.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function look_supports(): array {
+		return array(
+			'color'      => array(
+				'text'       => true,
+				'background' => true,
+				'link'       => false,
+			),
+			'typography' => array(
+				'fontSize' => true,
+			),
+			'spacing'    => array(
+				'margin'  => true,
+				'padding' => true,
+			),
+		);
+	}
+
+	/**
+	 * The look a block was given in its settings: an accent colour and the
+	 * corners. Shortcodes take the same, as accent="#b4235a" corners="round".
+	 *
+	 * @param array<string, mixed> $atts Block or shortcode attributes.
+	 * @return array{class: string, style: string} Class with a leading space, and inline custom properties.
+	 */
+	public static function look( array $atts ): array {
+		$class   = '';
+		$style   = '';
+		$corners = sanitize_key( (string) ( $atts['corners'] ?? '' ) );
+		if ( in_array( $corners, array( 'square', 'round' ), true ) ) {
+			$class .= ' rayec-corners--' . $corners;
+		}
+		$accent = sanitize_hex_color( (string) ( $atts['accent'] ?? '' ) );
+		if ( $accent ) {
+			$class .= ' has-rayec-accent';
+			// Worked out here, not with color-mix(): WordPress strips functions from a block's inline style.
+			$style = '--rayec-accent:' . $accent . ';--rayec-accent-strong:' . self::darker( $accent ) . ';--rayec-on-accent:' . self::on_colour( $accent ) . ';';
+		}
+		return array(
+			'class' => $class,
+			'style' => $style,
+		);
+	}
+
+	/**
+	 * A colour as six hex digits, without the hash.
+	 *
+	 * @param string $hex Colour, as #rgb or #rrggbb.
+	 * @return string
+	 */
+	private static function hex6( string $hex ): string {
+		$hex = ltrim( $hex, '#' );
+		return 3 === strlen( $hex ) ? $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2] : $hex;
+	}
+
+	/**
+	 * The accent a step darker, for hover.
+	 *
+	 * @param string $hex Colour.
+	 * @return string
+	 */
+	private static function darker( string $hex ): string {
+		$hex = self::hex6( $hex );
+		$out = '#';
+		for ( $i = 0; $i < 3; $i++ ) {
+			$out .= sprintf( '%02x', (int) round( hexdec( substr( $hex, $i * 2, 2 ) ) * 0.78 ) );
+		}
+		return $out;
+	}
+
+	/**
+	 * Black or white text on a colour: whichever is easier to read.
+	 *
+	 * @param string $hex Colour, as #rgb or #rrggbb.
+	 * @return string
+	 */
+	private static function on_colour( string $hex ): string {
+		$hex   = self::hex6( $hex );
+		$light = 0.0;
+		foreach ( array( 0.2126, 0.7152, 0.0722 ) as $i => $weight ) {
+			$channel = hexdec( substr( $hex, $i * 2, 2 ) ) / 255;
+			$light  += $weight * ( $channel <= 0.04045 ? $channel / 12.92 : ( ( $channel + 0.055 ) / 1.055 ) ** 2.4 );
+		}
+		// Contrast with white, and with the near-black #111 (light 0.0056).
+		return 1.05 / ( $light + 0.05 ) >= ( $light + 0.05 ) / 0.0556 ? '#fff' : '#111';
+	}
+
+	/**
+	 * A block's wrapper attributes, or plain ones for a shortcode, with the
+	 * look from its settings.
+	 *
+	 * @param string               $classes Classes.
+	 * @param array<string, mixed> $atts    Attributes.
+	 * @return string
+	 */
+	public static function wrapper_attributes( string $classes, array $atts ): string {
+		$look    = self::look( $atts );
+		$classes = $classes . $look['class'];
+		if ( \WP_Block_Supports::$block_to_render ) {
+			return get_block_wrapper_attributes(
+				array_filter(
+					array(
+						'class' => $classes,
+						'style' => $look['style'],
+					)
+				)
+			);
+		}
+		return 'class="' . esc_attr( $classes ) . '"' . ( '' !== $look['style'] ? ' style="' . esc_attr( $look['style'] ) . '"' : '' );
+	}
+
+	/**
 	 * A sanitised query-string value.
 	 *
 	 * @param string $key Parameter name.
@@ -160,14 +302,17 @@ class Frontend {
 	 * @param string $name Icon name.
 	 * @return string
 	 */
-	private static function icon( string $name ): string {
+	public static function icon( string $name ): string {
 		$paths = array(
-			'repeat' => 'M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3',
-			'pin'    => 'M12 21s7-6.2 7-11.5a7 7 0 1 0-14 0C5 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
-			'clock'  => 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
-			'search' => 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4',
-			'screen' => 'M4 5h16v11H4zM9 20h6M12 16v4',
-			'check'  => 'M5 12.5l4.5 4.5L19 7.5',
+			'repeat'   => 'M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3',
+			'pin'      => 'M12 21s7-6.2 7-11.5a7 7 0 1 0-14 0C5 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+			'clock'    => 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+			'search'   => 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4',
+			'screen'   => 'M4 5h16v11H4zM9 20h6M12 16v4',
+			'check'    => 'M5 12.5l4.5 4.5L19 7.5',
+			'calendar' => 'M8 2.5v3M16 2.5v3M3.5 9.5h17M5.5 4h13a2 2 0 0 1 2 2v13.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+			'users'    => 'M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35M15.5 4.65a3.5 3.5 0 0 1 0 6.7',
+			'ticket'   => 'M3.5 9a2.5 2.5 0 0 0 0 5v3.5a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5V14a2.5 2.5 0 0 1 0-5V5.5A1.5 1.5 0 0 0 19 4H5a1.5 1.5 0 0 0-1.5 1.5zM14 4.5v2M14 10.5v3M14 17.5v1.5',
 		);
 		return '<svg class="rayec-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="' . esc_attr( $paths[ $name ] ?? '' ) . '"/></svg>';
 	}
@@ -183,6 +328,8 @@ class Frontend {
 			array(
 				'view'     => '',
 				'category' => 0,
+				'accent'   => '',
+				'corners'  => '',
 			),
 			is_array( $atts ) ? $atts : array(),
 			'rayec_calendar'
@@ -206,7 +353,7 @@ class Frontend {
 			'venue'     => absint( self::param( 'rayec_venue' ) ),
 			'organizer' => absint( self::param( 'rayec_org' ) ),
 			'format'    => in_array( $format, Event::FORMATS, true ) ? $format : '',
-			'access'    => isset( Venue::access_features()[ $access ] ) ? $access : '',
+			'access'    => ( isset( Event::access_features()[ $access ] ) || isset( Venue::access_features()[ $access ] ) ) ? $access : '',
 		);
 
 		wp_enqueue_style( 'rayec-frontend' );
@@ -252,10 +399,7 @@ class Frontend {
 		}
 
 		// As a block, honour alignment and other block supports chosen in the editor.
-		$classes = 'rayec-cal rayec-cal--' . $view . self::theme_class();
-		$wrapper = \WP_Block_Supports::$block_to_render
-			? get_block_wrapper_attributes( array( 'class' => $classes ) )
-			: 'class="' . esc_attr( $classes ) . '"';
+		$wrapper = self::wrapper_attributes( 'rayec-cal rayec-cal--' . $view . self::theme_class(), $atts );
 
 		// Switching view, month or filter swaps this region in place; with the
 		// module blocked every control is still a plain link or a form submit.
@@ -493,22 +637,39 @@ class Frontend {
 		Event::prime( wp_list_pluck( $rows, 'event_id' ) );
 
 		$events = array();
-		$out    = array();
 		foreach ( $rows as $row ) {
 			$event_id = (int) $row->event_id;
 			if ( ! array_key_exists( $event_id, $events ) ) {
 				$events[ $event_id ] = Event::get( $event_id );
 			}
-			if ( ! $events[ $event_id ] ) {
+		}
+
+		// Places left, for the dates of events that take bookings with a
+		// limit: one query for the whole view, and none when nothing does.
+		$counted = array_filter( $rows, static fn( $row ) => ! empty( $events[ (int) $row->event_id ] ) && Registrations::is_open( $events[ (int) $row->event_id ] ) && $events[ (int) $row->event_id ]['rsvp']['capacity'] );
+		$taken   = $counted ? Registrations::taken_for_rows( $counted ) : array();
+		$now     = time();
+
+		$out = array();
+		foreach ( $rows as $key => $row ) {
+			$event = $events[ (int) $row->event_id ];
+			if ( ! $event ) {
 				continue;
 			}
 			list( $start, $end ) = Occurrences::times( $row );
-			$out[]               = array(
-				'event'   => $events[ $event_id ],
+
+			$left = null;
+			if ( isset( $counted[ $key ] ) && $start->getTimestamp() > $now ) {
+				$left = max( 0, (int) $event['rsvp']['capacity'] - ( $taken[ (int) $row->event_id . '|' . $row->start_local ] ?? 0 ) );
+			}
+
+			$out[] = array(
+				'event'   => $event,
 				'start'   => $start,
 				'end'     => $end,
 				'all_day' => (bool) $row->all_day,
-				'url'     => self::occurrence_url( $events[ $event_id ], $start ),
+				'url'     => self::occurrence_url( $event, $start ),
+				'left'    => $left,
 			);
 		}
 		return $out;
@@ -665,8 +826,11 @@ class Frontend {
 		if ( '' !== $event['cost'] ) {
 			$html .= '<li class="rayec-tag">' . esc_html( $event['cost'] ) . '</li>';
 		}
+		$features = array_intersect_key( Event::access_features(), array_flip( (array) ( $event['access'] ?? array() ) ) );
 		if ( ! empty( $event['venue']['access'] ) && 'online' !== $event['format'] ) {
-			$features = array_intersect_key( Venue::access_features(), array_flip( $event['venue']['access'] ) );
+			$features += array_intersect_key( Venue::access_features(), array_flip( $event['venue']['access'] ) );
+		}
+		if ( $features ) {
 			foreach ( array_slice( $features, 0, 3 ) as $label ) {
 				$html .= '<li class="rayec-tag rayec-tag--access">' . self::icon( 'check' ) . esc_html( $label ) . '</li>';
 			}
@@ -767,6 +931,29 @@ class Frontend {
 	}
 
 	/**
+	 * The access filter: what is laid on at the event, and what the venue has.
+	 *
+	 * @param string $current Selected feature.
+	 * @return string
+	 */
+	private static function access_select( string $current ): string {
+		$groups = array(
+			__( 'At the event', 'rayetun-events-calendar' ) => Event::access_features(),
+			__( 'At the venue', 'rayetun-events-calendar' ) => Venue::access_features(),
+		);
+		$html   = '<select name="rayec_access" aria-label="' . esc_attr__( 'Access', 'rayetun-events-calendar' ) . '" data-wp-on--change="actions.apply">';
+		$html  .= '<option value="">' . esc_html__( 'Any access', 'rayetun-events-calendar' ) . '</option>';
+		foreach ( $groups as $label => $options ) {
+			$html .= '<optgroup label="' . esc_attr( $label ) . '">';
+			foreach ( $options as $value => $text ) {
+				$html .= '<option value="' . esc_attr( (string) $value ) . '"' . selected( (string) $value, $current, false ) . '>' . esc_html( $text ) . '</option>';
+			}
+			$html .= '</optgroup>';
+		}
+		return $html . '</select>';
+	}
+
+	/**
 	 * Venue, organizer, format and access filters, folded away until wanted.
 	 *
 	 * @param array<string, mixed> $filters Active filters.
@@ -799,10 +986,7 @@ class Frontend {
 		}
 		$fields .= self::select( 'rayec_format', __( 'How it runs', 'rayetun-events-calendar' ), __( 'In person or online', 'rayetun-events-calendar' ), $formats, (string) $filters['format'] );
 
-		$features = Venue::access_features();
-		if ( $features ) {
-			$fields .= self::select( 'rayec_access', __( 'Access', 'rayetun-events-calendar' ), __( 'Any venue access', 'rayetun-events-calendar' ), $features, (string) $filters['access'] );
-		}
+		$fields .= self::access_select( (string) $filters['access'] );
 
 		if ( '' === $fields ) {
 			return '';
@@ -854,7 +1038,7 @@ class Frontend {
 			$chips['rayec_format'] = self::format_label( $filters['format'] );
 		}
 		if ( '' !== $filters['access'] ) {
-			$features              = Venue::access_features();
+			$features              = Event::access_features() + Venue::access_features();
 			$chips['rayec_access'] = $features[ $filters['access'] ] ?? '';
 		}
 
@@ -1002,6 +1186,10 @@ class Frontend {
 			if ( $status ) {
 				$html .= ' <span class="rayec-chip__status">' . esc_html( $status ) . '</span>';
 			}
+			$places = $status ? null : self::places_label( $item, true );
+			if ( $places ) {
+				$html .= ' <span class="rayec-chip__places rayec-chip__places--' . esc_attr( $places[1] ) . '">' . esc_html( $places[0] ) . '</span>';
+			}
 			$html .= '</a></li>';
 		}
 
@@ -1078,6 +1266,10 @@ class Frontend {
 		if ( $status ) {
 			$html .= ' <span class="rayec-badge">' . esc_html( $status ) . '</span>';
 		}
+		$places = self::places_label( $item );
+		if ( $places ) {
+			$html .= ' <span class="rayec-badge rayec-badge--' . esc_attr( $places[1] ) . '">' . esc_html( $places[0] ) . '</span>';
+		}
 		$html .= '</' . $heading . '>';
 
 		if ( ! empty( $event['venue'] ) && 'online' !== $event['format'] ) {
@@ -1096,6 +1288,34 @@ class Frontend {
 		}
 
 		return $html . '</li>';
+	}
+
+	/**
+	 * "3 places left" or "Full" for a date, when either is worth saying.
+	 *
+	 * @param array<string, mixed> $item  Hydrated occurrence.
+	 * @param bool                 $short "3 left" rather than "3 places left", for a chip.
+	 * @return array{0: string, 1: string}|null Text and modifier class.
+	 */
+	private static function places_label( array $item, bool $short = false ): ?array {
+		if ( null === ( $item['left'] ?? null ) ) {
+			return null;
+		}
+		$left = (int) $item['left'];
+		if ( 0 === $left ) {
+			return array( __( 'Full', 'rayetun-events-calendar' ), 'full' );
+		}
+		if ( ! Registrations::few_left( $item['event'], $left ) ) {
+			return null;
+		}
+		return array(
+			$short
+				/* translators: %d: places left. */
+				? sprintf( _n( '%d left', '%d left', $left, 'rayetun-events-calendar' ), $left )
+				/* translators: %d: places left. */
+				: sprintf( _n( '%d place left', '%d places left', $left, 'rayetun-events-calendar' ), $left ),
+			'few',
+		);
 	}
 
 	/**
@@ -1565,7 +1785,16 @@ class Frontend {
 		 */
 		$after = (string) apply_filters( 'rayec_single_after', $after, $event );
 
-		return $before . $content . $after;
+		// A date that can be booked gets the booking box beside the
+		// description, kept in view while reading. The wrapper asks the theme
+		// for its wide width; where there is not room for two columns (a
+		// phone, or a theme without wide width) the box is not shown and the
+		// page reads exactly as it does without it.
+		$aside = Registrations::aside( $event, $times );
+		if ( '' === $aside ) {
+			return $before . $content . $after;
+		}
+		return '<div class="rayec-event-layout alignwide"><div class="rayec-event-layout__grid"><div class="rayec-event-layout__main">' . $before . $content . $after . '</div>' . $aside . '</div></div>';
 	}
 
 	/**
@@ -1582,7 +1811,10 @@ class Frontend {
 		$rows = array();
 
 		if ( $times ) {
-			$when = '<p class="rayec-fact__main"><time datetime="' . esc_attr( $times[0]->format( $event['all_day'] ? 'Y-m-d' : 'c' ) ) . '">' . esc_html( Occurrences::format_range( $times[0], $times[1], $event['all_day'] ) ) . '</time></p>';
+			// The day, then the time on its own line, rather than one long line that wraps anywhere.
+			$parts = Occurrences::split_range( $times[0], $times[1], (bool) $event['all_day'] );
+			$when  = '<p class="rayec-fact__main"><time datetime="' . esc_attr( $times[0]->format( $event['all_day'] ? 'Y-m-d' : 'c' ) ) . '">' . esc_html( $parts['date'] ) . '</time></p>';
+			$when .= '<p class="rayec-fact__note rayec-fact__time">' . self::icon( 'clock' ) . esc_html( $parts['time'] ) . '</p>';
 			if ( $event['rrule_text'] ) {
 				$when .= '<p class="rayec-fact__note">' . self::icon( 'repeat' ) . esc_html( $event['rrule_text'] ) . '</p>';
 			}
@@ -1603,6 +1835,15 @@ class Frontend {
 				}
 			}
 			$rows[] = array( __( 'When', 'rayetun-events-calendar' ), $when );
+		}
+
+		$access_row = null;
+		$laid_on    = array_intersect_key( Event::access_features(), array_flip( (array) ( $event['access'] ?? array() ) ) );
+		$notes      = trim( (string) ( $event['access_notes'] ?? '' ) );
+		if ( $laid_on || '' !== $notes ) {
+			$access     = $laid_on ? '<ul class="rayec-fact__list">' . implode( '', array_map( static fn( $label ) => '<li>' . self::icon( 'check' ) . esc_html( $label ) . '</li>', $laid_on ) ) . '</ul>' : '';
+			$access    .= '' !== $notes ? '<p class="rayec-fact__note">' . esc_html( $notes ) . '</p>' : '';
+			$access_row = array( __( 'Access', 'rayetun-events-calendar' ), $access );
 		}
 
 		$places = Registrations::fact( $event, $times );
@@ -1637,6 +1878,9 @@ class Frontend {
 		if ( '' !== $where ) {
 			$rows[] = array( __( 'Where', 'rayetun-events-calendar' ), $where );
 		}
+		if ( $access_row ) {
+			$rows[] = $access_row;
+		}
 
 		if ( ! empty( $event['organizer'] ) ) {
 			$organizer = $event['organizer'];
@@ -1669,7 +1913,10 @@ class Frontend {
 			return '';
 		}
 
-		$html = '<div class="rayec-facts"><dl class="rayec-facts__grid">';
+		// When the booking card books in place, the places left here are
+		// redrawn with it.
+		$region = empty( $event['rsvp']['enabled'] ) ? '' : ' data-wp-interactive="rayec" data-wp-router-region="rayec-facts-' . (int) $event['id'] . '"';
+		$html   = '<div class="rayec-facts"' . $region . '><dl class="rayec-facts__grid">';
 		foreach ( $rows as $row ) {
 			$html .= '<div class="rayec-fact"><dt>' . esc_html( $row[0] ) . '</dt><dd>' . $row[1] . '</dd></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts above.
 		}
@@ -1696,9 +1943,13 @@ class Frontend {
 		$which = sprintf( __( 'for %s', 'rayetun-events-calendar' ), $event['title'] );
 		$named = ' <span class="rayec-sr">' . esc_html( $which ) . '</span>';
 
-		$html  = '<p class="rayec-actions">';
-		$html .= '<a class="rayec-btn rayec-btn--primary" href="' . esc_url( Ics::google_url( $event, $times[0], $times[1] ) ) . '">' . esc_html__( 'Add to Google Calendar', 'rayetun-events-calendar' ) . $named . '</a> ';
-		$html .= '<a class="rayec-btn" href="' . esc_url( Ics::feed_url( $event['id'] ) ) . '">' . esc_html__( 'Apple, Outlook and others (.ics)', 'rayetun-events-calendar' ) . $named . '</a></p>';
+		// When the date can be booked, Register is the one primary button here.
+		// Every button in the row shares one shape, so they read as a set.
+		$cta    = Registrations::cta( $event, $times );
+		$google = '' === $cta ? Registrations::button_class() : Registrations::secondary_class();
+		$html   = '<p class="rayec-actions">' . $cta;
+		$html  .= '<a class="' . esc_attr( $google ) . '" href="' . esc_url( Ics::google_url( $event, $times[0], $times[1] ) ) . '">' . esc_html__( 'Add to Google Calendar', 'rayetun-events-calendar' ) . $named . '</a> ';
+		$html  .= '<a class="' . esc_attr( Registrations::secondary_class() ) . '" href="' . esc_url( Ics::feed_url( $event['id'] ) ) . '">' . esc_html__( 'Apple, Outlook and others (.ics)', 'rayetun-events-calendar' ) . $named . '</a></p>';
 
 		return $html;
 	}

@@ -75,6 +75,8 @@ const blank = ( defaults = {} ) => {
 		post_status: 'publish',
 		guard: null,
 		rsvp: { ...RSVP_DEFAULTS },
+		access: [],
+		access_notes: '',
 	};
 };
 
@@ -666,6 +668,8 @@ export default function EventDrawer( { target, onClose } ) {
 			skip_closed: !! event.skip_closed,
 			organizer_id: event.organizer_id || 0,
 			thumbnail_id: event.thumbnail_id || 0,
+			access: event.access || [],
+			access_notes: event.access_notes || '',
 			rsvp: {
 				enabled: !! rsvp.enabled,
 				capacity: Math.max( 0, parseInt( rsvp.capacity, 10 ) || 0 ),
@@ -1277,6 +1281,52 @@ export default function EventDrawer( { target, onClose } ) {
 						</fieldset>
 					) }
 
+					<fieldset className="rayec-checks rayec-checks--grid">
+						<legend>
+							{ __(
+								'Access at this event',
+								'rayetun-events-calendar'
+							) }
+						</legend>
+						{ Object.entries( config.eventAccess || {} ).map(
+							( [ key, label ] ) => {
+								const access = event.access || [];
+								return (
+									<CheckboxControl
+										__nextHasNoMarginBottom
+										key={ key }
+										label={ label }
+										checked={ access.includes( key ) }
+										onChange={ ( on ) =>
+											set( {
+												access: on
+													? [ ...access, key ]
+													: access.filter(
+															( item ) =>
+																item !== key
+													  ),
+											} )
+										}
+									/>
+								);
+							}
+						) }
+					</fieldset>
+					<TextareaControl
+						__nextHasNoMarginBottom
+						label={ __(
+							'Anything else about access',
+							'rayetun-events-calendar'
+						) }
+						help={ __(
+							'Shown on the event page, beside the access details of the venue. For example: “The talk is recorded and captioned afterwards.”',
+							'rayetun-events-calendar'
+						) }
+						rows={ 2 }
+						value={ event.access_notes || '' }
+						onChange={ ( notes ) => set( { access_notes: notes } ) }
+					/>
+
 					<h3 className="rayec-form__section">
 						{ __( 'Image', 'rayetun-events-calendar' ) }
 					</h3>
@@ -1376,6 +1426,18 @@ export default function EventDrawer( { target, onClose } ) {
 					) }
 					{ event.id > 0 && rsvp.enabled && (
 						<Attendees eventId={ event.id } />
+					) }
+
+					{ /* Add-ons add their own sections, such as tickets. */ }
+					{ applyFilters( 'rayec.drawerPanels', [], event ).map(
+						( panel ) => (
+							<div key={ panel.key } className="rayec-drawer-panel">
+								<h3 className="rayec-form__section">
+									{ panel.title }
+								</h3>
+								{ panel.render( { event, set } ) }
+							</div>
+						)
 					) }
 
 					{ ! event.id && (

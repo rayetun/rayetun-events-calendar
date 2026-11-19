@@ -60,6 +60,23 @@ class Registrations {
 	const NOTICE_HOOK = 'rayec_tell_registrants';
 
 	/**
+	 * WP-Cron hook that sends the rest of an organiser's message.
+	 */
+	const MESSAGE_HOOK = 'rayec_send_message';
+
+	/**
+	 * People emailed at a time when an organiser writes to everyone booked:
+	 * the first batch at once, the rest a batch a minute, so a shared host's
+	 * mail limit is not hit in one go.
+	 */
+	const MESSAGE_BATCH = 20;
+
+	/**
+	 * Option holding the messages still being sent, by job.
+	 */
+	const MESSAGE_QUEUE = 'rayec_message_queue';
+
+	/**
 	 * How long a change waits before anyone is told about it. Long enough to
 	 * undo a slip of the mouse, after which nobody hears about the slip; the
 	 * job checks the change still stands before it sends anything.
@@ -70,6 +87,13 @@ class Registrations {
 	 * Statuses whose holders are expecting to come.
 	 */
 	const EXPECTING = array( 'confirmed', 'pending', 'waitlisted' );
+
+	/**
+	 * New bookings one connection can make in an hour, before it is asked to
+	 * wait. High enough for a family or a school office booking several
+	 * dates; low enough that nobody can fill an event with made-up names.
+	 */
+	const PER_HOUR = 20;
 
 	/**
 	 * What the form needs to draw itself again after a failed submission.
@@ -86,6 +110,7 @@ class Registrations {
 	public static function init(): void {
 		add_action( 'rayec_event_status_changed', array( __CLASS__, 'status_changed' ), 10, 3 );
 		add_action( self::NOTICE_HOOK, array( __CLASS__, 'send_notices' ), 10, 3 );
+		add_action( self::MESSAGE_HOOK, array( __CLASS__, 'send_message_batch' ) );
 		add_action( 'template_redirect', array( __CLASS__, 'handle_post' ) );
 		add_action( 'before_delete_post', array( __CLASS__, 'delete_for_event' ) );
 		add_filter( 'wp_privacy_personal_data_exporters', array( __CLASS__, 'register_exporter' ) );
@@ -240,11 +265,47 @@ class Registrations {
 	}
 
 	/**
+	 * Places held on many dates of many events, in one query.
+	 *
+	 * @param object[] $rows Occurrence rows (event_id, start_local).
+	 * @return array<string, int> "event_id|local start" => places held.
+	 */
+	public static function taken_for_rows( array $rows ): array {
+		global $wpdb;
+
+		$ids = array_values( array_unique( array_map( static fn( $row ) => (int) $row->event_id, $rows ) ) );
+		if ( ! $ids ) {
+			return array();
+		}
+		$table = $wpdb->prefix . self::TABLE;
+		$in    = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- custom table; $in is one %d per event ID, built above.
+		$found = (array) $wpdb->get_results( $wpdb->prepare( "SELECT event_id, occurrence_start, SUM(places) AS taken FROM {$table} WHERE event_id IN ({$in}) AND status IN (%s, %s, %s) GROUP BY event_id, occurrence_start", array_merge( $ids, self::HOLDING ) ) );
+
+		$out = array();
+		foreach ( $found as $row ) {
+			$out[ (int) $row->event_id . '|' . $row->occurrence_start ] = (int) $row->taken;
+		}
+		return $out;
+	}
+
+	/**
+	 * Whether any event on the site takes registrations.
+	 *
+	 * @return bool
+	 */
+	public static function in_use(): bool {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- a single existence check.
+		return (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value = %s LIMIT 1", '_rayec_rsvp', '1' ) );
+	}
+
+	/**
 	 * The next dates someone could register for, with the places left on each.
 	 *
 	 * @param array<string, mixed> $event Event.
 	 * @param int                  $limit How many dates.
-	 * @return array<int, array{start: string, label: string, short: string, taken: int, left: int|null}>
+	 * @return array<int, array{start: string, label: string, short: string, date: string, time: string, taken: int, left: int|null}>
 	 */
 	public static function upcoming_dates( array $event, int $limit = 12 ): array {
 		global $wpdb;
@@ -263,11 +324,15 @@ class Registrations {
 		foreach ( $rows as $row ) {
 			$times = Occurrences::times( $row );
 			$held  = $taken[ $row->start_local ] ?? 0;
+			$parts = Occurrences::split_range( $times[0], $times[1], (bool) $event['all_day'] );
 			$out[] = array(
 				'start' => (string) $row->start_local,
 				'label' => Occurrences::format_range( $times[0], $times[1], (bool) $event['all_day'] ),
 				// The start alone, for the date picker, where the whole range does not fit.
 				'short' => wp_date( 'l, ' . $format, $times[0]->getTimestamp(), $times[0]->getTimezone() ),
+				// The day and the time apart, for the details beside the form.
+				'date'  => $parts['date'],
+				'time'  => $parts['time'],
 				'taken' => $held,
 				'left'  => $capacity ? max( 0, $capacity - $held ) : null,
 			);
@@ -642,7 +707,7 @@ class Registrations {
 				'rayec_key'    => $token,
 			),
 			self::date_url( $event, (string) $row->occurrence_start )
-		) . '#rayec-register-status';
+		) . '#rayec-register-status-' . (int) $event['id'];
 	}
 
 	/**
@@ -910,37 +975,137 @@ class Registrations {
 	 */
 
 	/**
-	 * Handle a registration or a cancellation posted to an event page.
+	 * The booking form templates an organiser can choose between.
+	 *
+	 * @return array<string, string> key => description.
+	 */
+	public static function layouts(): array {
+		return array(
+			'card'    => __( 'Card: the form in a panel, ready to fill in', 'rayetun-events-calendar' ),
+			'compact' => __( 'Compact: one Register button that opens the form', 'rayetun-events-calendar' ),
+			'split'   => __( 'Split: the event details beside the form', 'rayetun-events-calendar' ),
+		);
+	}
+
+	/**
+	 * Whether the Register button should be the theme's own button.
+	 *
+	 * With "Follow my theme" the calendar paints nothing of its own, and a
+	 * theme with a theme.json styles its buttons through the element-button
+	 * class. Classic themes may not style it at all, so they keep the
+	 * calendar's button, as do the light, dark and high-contrast settings,
+	 * where the calendar draws its own colours.
+	 *
+	 * @return bool
+	 */
+	private static function theme_button(): bool {
+		return 'inherit' === Plugin::setting( 'theme' ) && function_exists( 'wp_theme_has_theme_json' ) && wp_theme_has_theme_json();
+	}
+
+	/**
+	 * Classes for a primary button: the theme's, or the calendar's.
+	 *
+	 * @param string $extra More classes.
+	 * @return string
+	 */
+	public static function button_class( string $extra = '' ): string {
+		return trim( ( self::theme_button() ? 'wp-element-button rayec-themebtn' : 'rayec-btn rayec-btn--primary' ) . ' ' . $extra );
+	}
+
+	/**
+	 * Classes for a button beside the primary one: the same shape, size and
+	 * type, as an outline, so a row of buttons reads as one set.
+	 *
+	 * @param string $extra More classes.
+	 * @return string
+	 */
+	public static function secondary_class( string $extra = '' ): string {
+		return trim( ( self::theme_button() ? 'wp-element-button rayec-themebtn rayec-themebtn--outline' : 'rayec-btn' ) . ' ' . $extra );
+	}
+
+	/**
+	 * A form field's ID. It carries the event, so two forms on one page never
+	 * share an ID.
+	 *
+	 * @param array<string, mixed> $event Event.
+	 * @param string               $field Field key.
+	 * @return string
+	 */
+	private static function fid( array $event, string $field ): string {
+		return 'rayec-rsvp-' . (int) $event['id'] . '-' . $field;
+	}
+
+	/**
+	 * The address of the page being drawn or posted to.
+	 *
+	 * @return string
+	 */
+	private static function current_url(): string {
+		$host = isset( $_SERVER['HTTP_HOST'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) ) : (string) wp_parse_url( home_url(), PHP_URL_HOST );
+		$uri  = isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '/';
+		$url  = set_url_scheme( 'http://' . $host . $uri );
+		return remove_query_arg( array( 'rayec_registered', 'rayec_cancelled', 'rayec_cancel', 'rayec_key' ), $url );
+	}
+
+	/**
+	 * Where someone goes back to after booking: the page they booked on.
+	 *
+	 * On the event's own page, that page for the date they chose, so the facts
+	 * at the top describe their booking.
+	 *
+	 * @param array<string, mixed> $event Event.
+	 * @param string               $start Local start booked.
+	 * @return string
+	 */
+	private static function return_url( array $event, string $start ): string {
+		if ( is_singular( Post_Types::EVENT ) && get_queried_object_id() === (int) $event['id'] ) {
+			return self::date_url( $event, $start );
+		}
+		return wp_validate_redirect( self::current_url(), self::date_url( $event, $start ) );
+	}
+
+	/**
+	 * Handle a registration posted from any page, or a cancellation posted
+	 * to an event page.
+	 *
+	 * A registration says which event it is for, so the form works on the
+	 * event's own page, in the Event registration block on any other page,
+	 * and in the shortcode, and the answer comes back to the same page.
 	 *
 	 * @return void
 	 */
 	public static function handle_post(): void {
-		if ( ! is_singular( Post_Types::EVENT ) ) {
+		if ( isset( $_POST['rayec_rsvp_nonce'], $_POST['rayec_rsvp_event'] ) ) {
+			$event_id = absint( wp_unslash( $_POST['rayec_rsvp_event'] ) );
+			$event    = Post_Types::EVENT === get_post_type( $event_id ) ? Event::get( $event_id ) : null;
+			if ( ! $event ) {
+				return;
+			}
+			$fresh = wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['rayec_rsvp_nonce'] ) ), 'rayec_rsvp_' . $event['id'] );
+			self::handle_register( $event, (bool) $fresh );
+			return;
+		}
+
+		if ( ! is_singular( Post_Types::EVENT ) || ! isset( $_POST['rayec_cancel_nonce'], $_POST['rayec_cancel_place'] ) ) {
 			return;
 		}
 		$event = Event::get( get_queried_object_id() );
 		if ( ! $event ) {
 			return;
 		}
-
-		if ( isset( $_POST['rayec_rsvp_nonce'] ) ) {
-			$fresh = wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['rayec_rsvp_nonce'] ) ), 'rayec_rsvp_' . $event['id'] );
-			self::handle_register( $event, (bool) $fresh );
-		} elseif ( isset( $_POST['rayec_cancel_nonce'], $_POST['rayec_cancel_place'] ) ) {
-			$id = absint( wp_unslash( $_POST['rayec_cancel_place'] ) );
-			if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['rayec_cancel_nonce'] ) ), 'rayec_cancel_' . $id ) ) {
-				self::$form['cancel_error'] = __( 'That took too long. Please press the button again.', 'rayetun-events-calendar' );
-				return;
-			}
-			$key    = isset( $_POST['rayec_key'] ) ? sanitize_text_field( wp_unslash( $_POST['rayec_key'] ) ) : '';
-			$result = self::cancel_with_token( $id, $key );
-			if ( is_wp_error( $result ) ) {
-				self::$form['cancel_error'] = $result->get_error_message();
-				return;
-			}
-			wp_safe_redirect( add_query_arg( 'rayec_cancelled', '1', self::date_url( $event, (string) $result->occurrence_start ) ) . '#rayec-register-status' );
-			exit;
+		$id = absint( wp_unslash( $_POST['rayec_cancel_place'] ) );
+		if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['rayec_cancel_nonce'] ) ), 'rayec_cancel_' . $id ) ) {
+			self::$form['cancel_error'] = __( 'That took too long. Please press the button again.', 'rayetun-events-calendar' );
+			return;
 		}
+		$key    = isset( $_POST['rayec_key'] ) ? sanitize_text_field( wp_unslash( $_POST['rayec_key'] ) ) : '';
+		$result = self::cancel_with_token( $id, $key );
+		if ( is_wp_error( $result ) ) {
+			self::$form['cancel_error'] = $result->get_error_message();
+			return;
+		}
+		wp_safe_redirect( add_query_arg( 'rayec_cancelled', (string) $event['id'], self::date_url( $event, (string) $result->occurrence_start ) ) . '#rayec-register-status-' . (int) $event['id'] );
+		exit;
 	}
 
 	/**
@@ -962,17 +1127,16 @@ class Registrations {
 		$trap   = isset( $_POST['rayec_rsvp_website'] ) ? sanitize_text_field( wp_unslash( $_POST['rayec_rsvp_website'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
-		$done = add_query_arg( 'rayec_registered', '1', self::date_url( $event, $values['start'] ) ) . '#rayec-register-status';
+		$done = add_query_arg( 'rayec_registered', (string) $event['id'], self::return_url( $event, $values['start'] ) ) . '#rayec-register-status-' . (int) $event['id'];
 
 		// A field nobody can see was filled in: a robot. Thank it and save nothing.
 		if ( '' !== $trap ) {
-			wp_safe_redirect( $done );
-			exit;
+			self::finish( $done, $done );
 		}
 
 		$errors = array();
 		if ( ! $fresh ) {
-			$errors['form'] = __( 'This page had been open for a while, so the form has been refreshed. Check your details and press Register again.', 'rayetun-events-calendar' );
+			$errors['form'] = __( 'This page had been open for a while, so the form has been refreshed. Check your details and press the button again.', 'rayetun-events-calendar' );
 		}
 		if ( '' === $values['start'] ) {
 			$errors['date'] = __( 'Choose a date.', 'rayetun-events-calendar' );
@@ -996,6 +1160,10 @@ class Registrations {
 		 */
 		$errors = (array) apply_filters( 'rayec_registration_validate', $errors, $event, $values );
 
+		if ( ! $errors && self::too_many() ) {
+			$errors['form'] = __( 'A lot of bookings have come from your connection in the last hour, so this one has not been made. Please try again later, or contact the organiser.', 'rayetun-events-calendar' );
+		}
+
 		if ( ! $errors ) {
 			/**
 			 * Filters extra data stored with a registration, such as the answers
@@ -1015,13 +1183,15 @@ class Registrations {
 				 * An add-on that takes payment sends a pending registration to
 				 * its checkout here.
 				 *
-				 * @param string                                                           $url    The event page, saying the place is booked.
+				 * @param string                                                           $url    The page they booked on, saying the place is booked.
 				 * @param array{id: int, status: string, existing: bool, token: string} $result The registration.
 				 * @param array<string, mixed>                                             $event  Event.
 				 */
 				$url = (string) apply_filters( 'rayec_registration_redirect', $done, $result, $event );
-				wp_safe_redirect( $url );
-				exit;
+				if ( ! $result['existing'] ) {
+					self::count_booking();
+				}
+				self::finish( $url, $done );
 			}
 
 			$fields = array(
@@ -1033,9 +1203,81 @@ class Registrations {
 		}
 
 		self::$form = array(
+			'event'  => (int) $event['id'],
 			'errors' => $errors,
 			'values' => $values,
 		);
+	}
+
+	/**
+	 * Send someone on after a booking.
+	 *
+	 * A form posted the ordinary way is redirected. A form sent from the page
+	 * by its script (it adds rayec_rsvp_js) gets the address back as JSON
+	 * instead, because a script cannot see where a redirect went: the script
+	 * then updates the booking card in place, or goes to the address when it
+	 * is somewhere else, such as an add-on's checkout.
+	 *
+	 * @param string $url      Where to go.
+	 * @param string $fallback Where to go when $url is not allowed.
+	 * @return never
+	 */
+	private static function finish( string $url, string $fallback ): never {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- only chooses the form of the reply; the booking was checked in handle_post().
+		if ( isset( $_POST['rayec_rsvp_js'] ) ) {
+			wp_send_json( array( 'redirect' => wp_validate_redirect( $url, $fallback ) ) );
+		}
+		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * The key that counts one connection's bookings this hour.
+	 *
+	 * The address is hashed with the site's salt, so the count never stores
+	 * an IP address anyone could read back.
+	 *
+	 * @return string Empty when there is no address to count by.
+	 */
+	private static function counter_key(): string {
+		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+		return '' === $ip ? '' : 'rayec_rsvp_ip_' . md5( wp_salt( 'nonce' ) . $ip );
+	}
+
+	/**
+	 * Whether this connection has made as many bookings this hour as it may.
+	 *
+	 * People who can edit events are never limited: they book for others.
+	 *
+	 * @return bool
+	 */
+	private static function too_many(): bool {
+		if ( current_user_can( 'edit_posts' ) ) {
+			return false;
+		}
+		/**
+		 * Filters how many new bookings one connection may make in an hour.
+		 *
+		 * Raise it for a site where many people book from one shared
+		 * connection, such as a school or an office. 0 turns the limit off.
+		 *
+		 * @param int $limit Bookings an hour. Default 20.
+		 */
+		$limit = (int) apply_filters( 'rayec_registration_rate_limit', self::PER_HOUR );
+		$key   = self::counter_key();
+		return $limit > 0 && '' !== $key && (int) get_transient( $key ) >= $limit;
+	}
+
+	/**
+	 * Count a new booking against this connection.
+	 *
+	 * @return void
+	 */
+	private static function count_booking(): void {
+		$key = self::counter_key();
+		if ( '' !== $key ) {
+			set_transient( $key, (int) get_transient( $key ) + 1, HOUR_IN_SECONDS );
+		}
 	}
 
 	/**
@@ -1050,241 +1292,646 @@ class Registrations {
 			return null;
 		}
 
-		$link = '<p class="rayec-fact__note"><a href="#rayec-register">' . esc_html__( 'Register', 'rayetun-events-calendar' ) . '</a></p>';
 		if ( ! self::is_open( $event ) ) {
 			$main = __( 'Registration closed', 'rayetun-events-calendar' );
-			$link = '';
 		} elseif ( $times[0]->getTimestamp() <= time() ) {
 			$main = __( 'Registration closed for this date', 'rayetun-events-calendar' );
-			$link = '';
 		} elseif ( $event['rsvp']['capacity'] ) {
-			$start = self::local_start( $event, $times[0] );
-			$taken = self::taken( (int) $event['id'], array( $start ) );
-			$left  = max( 0, (int) $event['rsvp']['capacity'] - $taken[ $start ] );
-			$main  = $left
-				/* translators: 1: places left, 2: places in total. */
-				? sprintf( _n( '%1$d of %2$d place left', '%1$d of %2$d places left', $left, 'rayetun-events-calendar' ), $left, (int) $event['rsvp']['capacity'] )
-				: __( 'This date is full', 'rayetun-events-calendar' );
+			$places = self::places_text( self::left_on( $event, self::local_start( $event, $times[0] ) ), (int) $event['rsvp']['capacity'] );
+			return array( __( 'Places', 'rayetun-events-calendar' ), '<p class="rayec-fact__main">' . esc_html( $places['text'] ) . '</p>' . self::meter( $places['fill'] ) );
 		} else {
 			$main = __( 'Registration open', 'rayetun-events-calendar' );
 		}
 
-		return array( __( 'Places', 'rayetun-events-calendar' ), '<p class="rayec-fact__main">' . esc_html( $main ) . '</p>' . $link );
+		return array( __( 'Places', 'rayetun-events-calendar' ), '<p class="rayec-fact__main">' . esc_html( $main ) . '</p>' );
 	}
 
 	/**
-	 * The Register section, after the description.
+	 * How full a date is: in words, and as a share for the bar.
+	 *
+	 * @param int $left     Places left.
+	 * @param int $capacity Places in all.
+	 * @return array{text: string, fill: int}
+	 */
+	private static function places_text( int $left, int $capacity ): array {
+		return array(
+			'text' => $left
+				/* translators: 1: places left, 2: places in total. */
+				? sprintf( _n( '%1$d of %2$d place left', '%1$d of %2$d places left', $left, 'rayetun-events-calendar' ), $left, $capacity )
+				: __( 'This date is full', 'rayetun-events-calendar' ),
+			'fill' => $capacity > 0 ? (int) round( 100 * ( $capacity - min( $left, $capacity ) ) / $capacity ) : 0,
+		);
+	}
+
+	/**
+	 * A thin bar showing how much of a date is booked. The words beside it
+	 * say the same, so it is hidden from screen readers.
+	 *
+	 * @param int $fill Share booked, 0 to 100.
+	 * @return string
+	 */
+	private static function meter( int $fill ): string {
+		$fill = max( 0, min( 100, $fill ) );
+		return '<span class="rayec-meter' . ( 100 === $fill ? ' is-full' : '' ) . '" aria-hidden="true"><span class="rayec-meter__fill" data-rayec-pick="fill" style="width:' . $fill . '%"></span></span>';
+	}
+
+	/**
+	 * Details as rows, each led by an icon: the date, the time, the place, the
+	 * places left and the price. Each row starts with its name for screen
+	 * readers, which do not see the icon.
+	 *
+	 * @param array<int, array<string, string>> $rows     Rows: icon, label, main, and optionally sub, pick and after (HTML).
+	 * @param string                            $modifier Extra class.
+	 * @return string
+	 */
+	private static function detail_rows( array $rows, string $modifier = '' ): string {
+		$html = '<ul class="' . esc_attr( trim( 'rayec-details ' . $modifier ) ) . '">';
+		foreach ( $rows as $row ) {
+			$pick  = empty( $row['pick'] ) ? '' : ' data-rayec-pick="' . esc_attr( $row['pick'] ) . '"';
+			$html .= '<li class="rayec-detail"><span class="rayec-detail__icon">' . Frontend::icon( $row['icon'] ) . '</span><span class="rayec-detail__text">';
+			$html .= '<span class="rayec-sr">' . esc_html( $row['label'] ) . ': </span><span class="rayec-detail__main"' . $pick . '>' . esc_html( $row['main'] ) . '</span>';
+			if ( '' !== (string) ( $row['sub'] ?? '' ) ) {
+				$html .= '<span class="rayec-detail__sub">' . esc_html( (string) $row['sub'] ) . '</span>';
+			}
+			$html .= ( $row['after'] ?? '' ) . '</span></li>';
+		}
+		return $html . '</ul>';
+	}
+
+	/**
+	 * The row saying where, for the detail rows: the venue and its address,
+	 * or "Online".
+	 *
+	 * @param array<string, mixed> $event Event.
+	 * @return array<string, string>|null
+	 */
+	private static function where_row( array $event ): ?array {
+		$label  = __( 'Where', 'rayetun-events-calendar' );
+		$online = 'online' === $event['format'] || 'moved_online' === $event['event_status'];
+		if ( ! $online && ! empty( $event['venue'] ) ) {
+			$sub = array_filter( array( (string) ( $event['venue']['address'] ?? '' ), (string) ( $event['venue']['city'] ?? '' ) ) );
+			if ( 'hybrid' === $event['format'] ) {
+				$sub[] = __( 'and online', 'rayetun-events-calendar' );
+			}
+			return array(
+				'icon'  => 'pin',
+				'label' => $label,
+				'main'  => (string) $event['venue']['name'],
+				'sub'   => implode( ', ', $sub ),
+			);
+		}
+		if ( $online || 'hybrid' === $event['format'] ) {
+			return array(
+				'icon'  => 'screen',
+				'label' => $label,
+				'main'  => __( 'Online', 'rayetun-events-calendar' ),
+			);
+		}
+		return null;
+	}
+
+	/**
+	 * The date the form opens on: the one sent with a form that came back,
+	 * else the date being shown, else the first date with room. A full date
+	 * cannot be chosen, so the list never opens on one: the browser would
+	 * then send no date at all.
+	 *
+	 * @param array<string, mixed>                                   $event Event.
+	 * @param array<int, array<string, mixed>>                       $dates Dates that can be chosen.
+	 * @param array{0: DateTimeImmutable, 1: DateTimeImmutable}|null $times The date being shown.
+	 * @return string Local start.
+	 */
+	private static function chosen_start( array $event, array $dates, ?array $times ): string {
+		$values = self::errors_for( $event ) ? (array) ( self::$form['values'] ?? array() ) : array();
+		$chosen = (string) ( $values['start'] ?? '' );
+		if ( '' === $chosen && $times ) {
+			$chosen = self::local_start( $event, $times[0] );
+		}
+		$open = array_values( array_filter( $dates, static fn( $date ) => null === $date['left'] || $date['left'] > 0 ) );
+		if ( $open && ! in_array( $chosen, wp_list_pluck( $open, 'start' ), true ) ) {
+			$chosen = (string) $open[0]['start'];
+		}
+		return $chosen;
+	}
+
+	/**
+	 * Places left on one date.
+	 *
+	 * @param array<string, mixed> $event Event.
+	 * @param string               $start Local start.
+	 * @return int
+	 */
+	private static function left_on( array $event, string $start ): int {
+		$taken = self::taken( (int) $event['id'], array( $start ) );
+		return max( 0, (int) $event['rsvp']['capacity'] - $taken[ $start ] );
+	}
+
+	/**
+	 * The Register button in the facts panel at the top of the event page,
+	 * when the date being shown can still be booked.
 	 *
 	 * @param array<string, mixed>                                   $event Event.
 	 * @param array{0: DateTimeImmutable, 1: DateTimeImmutable}|null $times The date being shown.
 	 * @return string
 	 */
-	public static function render( array $event, ?array $times ): string {
-		$status = self::status_box( $event );
-		// Someone who came to cancel sees only that, not the form to book again.
-		if ( '' !== Frontend::param( 'rayec_cancel' ) && '' !== $status ) {
-			return '<section class="rayec-section rayec-rsvp" id="rayec-register">' . $status . '</section>';
+	public static function cta( array $event, ?array $times ): string {
+		if ( ! $times || ! self::is_open( $event ) || $times[0]->getTimestamp() <= time() ) {
+			return '';
 		}
-		if ( empty( $event['rsvp']['enabled'] ) ) {
-			return '' !== $status ? '<section class="rayec-section rayec-rsvp" id="rayec-register">' . $status . '</section>' : '';
+		if ( $event['rsvp']['capacity'] && ! self::left_on( $event, self::local_start( $event, $times[0] ) ) ) {
+			return '';
 		}
-
-		$html  = '<section class="rayec-section rayec-rsvp" id="rayec-register" aria-labelledby="rayec-register-title">';
-		$html .= '<h2 class="rayec-section__title" id="rayec-register-title">' . esc_html__( 'Register', 'rayetun-events-calendar' ) . '</h2>';
-		$html .= $status;
-
-		if ( ! self::is_open( $event ) ) {
-			$why = array(
-				'cancelled' => __( 'Registration is closed because this event has been cancelled.', 'rayetun-events-calendar' ),
-				'postponed' => __( 'Registration is closed until a new date is announced.', 'rayetun-events-calendar' ),
-			);
-			return $html . '<p>' . esc_html( $why[ $event['event_status'] ] ?? __( 'Registration is closed.', 'rayetun-events-calendar' ) ) . '</p></section>';
-		}
-
-		$dates = self::upcoming_dates( $event );
-		if ( ! $dates ) {
-			return $html . '<p>' . esc_html__( 'There are no dates to register for at the moment.', 'rayetun-events-calendar' ) . '</p></section>';
-		}
-		$open = array_filter( $dates, static fn( $date ) => null === $date['left'] || $date['left'] > 0 );
-		if ( ! $open ) {
-			$message = count( $dates ) > 1
-				? __( 'Every date coming up is full.', 'rayetun-events-calendar' )
-				: __( 'This event is full.', 'rayetun-events-calendar' );
-			return $html . '<p>' . esc_html( $message ) . '</p></section>';
-		}
-
-		$form = self::form( $event, $dates, $times );
-		if ( '1' === Frontend::param( 'rayec_registered' ) ) {
-			// Just booked: the form folds away, so nobody books twice by accident.
-			$form = '<details class="rayec-rsvp__again"><summary>' . esc_html__( 'Register someone else, or for another date', 'rayetun-events-calendar' ) . '</summary>' . $form . '</details>';
-		}
-		return $html . $form . '</section>';
+		return '<a class="' . esc_attr( self::button_class( 'rayec-cta' ) ) . '" href="#rayec-register-' . (int) $event['id'] . '">' . esc_html( self::go_label( self::upcoming_dates( $event ) ) ) . '</a> ';
 	}
 
 	/**
-	 * The registration form.
+	 * What the button that leads to the form says: "Choose a date" when there
+	 * is more than one date to choose from, "Register" when there is one.
 	 *
-	 * Built to the pattern that works with or without a screen reader: every
-	 * field has a visible label, the required ones say so in words, and when
-	 * something is wrong a summary at the top links to each field, which
-	 * carries its own message too.
+	 * @param array<int, array<string, mixed>> $dates Dates that can be chosen.
+	 * @return string
+	 */
+	private static function go_label( array $dates ): string {
+		$open = array_filter( $dates, static fn( $date ) => null === $date['left'] || $date['left'] > 0 );
+		return count( $open ) > 1 ? __( 'Choose a date', 'rayetun-events-calendar' ) : __( 'Register', 'rayetun-events-calendar' );
+	}
+
+	/**
+	 * Whether a date has so few places left that it is worth saying.
+	 *
+	 * Only ever from the real count: a place left is never invented to hurry
+	 * anyone along.
+	 *
+	 * @param array<string, mixed> $event Event.
+	 * @param int                  $left  Places left.
+	 * @return bool
+	 */
+	public static function few_left( array $event, int $left ): bool {
+		$capacity = (int) ( $event['rsvp']['capacity'] ?? 0 );
+		/**
+		 * Filters how few places left is worth showing on the calendar.
+		 *
+		 * @param int                  $few      Places. Default a fifth of the places, and at least 3.
+		 * @param int                  $capacity Places on each date.
+		 * @param array<string, mixed> $event    Event.
+		 */
+		$few = (int) apply_filters( 'rayec_few_places_left', max( 3, (int) ceil( $capacity / 5 ) ), $capacity, $event );
+		return $capacity > 0 && $left > 0 && $left <= $few;
+	}
+
+	/**
+	 * A short line saying where: the venue and its town, or "Online".
+	 *
+	 * @param array<string, mixed> $event Event.
+	 * @return string
+	 */
+	private static function where_short( array $event ): string {
+		if ( 'online' === $event['format'] || 'moved_online' === $event['event_status'] ) {
+			return __( 'Online', 'rayetun-events-calendar' );
+		}
+		if ( empty( $event['venue'] ) ) {
+			return '';
+		}
+		return implode( ', ', array_filter( array( (string) $event['venue']['name'], (string) ( $event['venue']['city'] ?? '' ) ) ) );
+	}
+
+	/**
+	 * The booking box that stays in view beside the description on a wide
+	 * event page: the date, the places left and the button to the form.
+	 *
+	 * It repeats what the facts panel says at the top, so it is only shown
+	 * where there is room for a side column, and it is a router region, so
+	 * the places update when someone books on the page.
+	 *
+	 * @param array<string, mixed>                                   $event Event.
+	 * @param array{0: DateTimeImmutable, 1: DateTimeImmutable}|null $times The date being shown.
+	 * @return string Empty when the date being shown cannot be booked.
+	 */
+	public static function aside( array $event, ?array $times ): string {
+		if ( ! $times || ! self::is_open( $event ) || $times[0]->getTimestamp() <= time() ) {
+			return '';
+		}
+		$id      = (int) $event['id'];
+		$when    = Occurrences::split_range( $times[0], $times[1], (bool) $event['all_day'] );
+		$one_day = $times[0]->format( 'Y-m-d' ) === $times[1]->modify( '-1 second' )->format( 'Y-m-d' );
+		$rows = array(
+			// The box is narrow: a one-day date on one line, its weekday under it.
+			array(
+				'icon'  => 'calendar',
+				'label' => __( 'Date', 'rayetun-events-calendar' ),
+				'main'  => $one_day ? $when['day'] : $when['date'],
+				'sub'   => $one_day ? $when['weekday'] : '',
+			),
+			array(
+				'icon'  => 'clock',
+				'label' => __( 'Time', 'rayetun-events-calendar' ),
+				'main'  => $when['time'],
+			),
+		);
+		$left = null;
+		if ( $event['rsvp']['capacity'] ) {
+			$left   = self::left_on( $event, self::local_start( $event, $times[0] ) );
+			$places = self::places_text( $left, (int) $event['rsvp']['capacity'] );
+			$rows[] = array(
+				'icon'  => 'users',
+				'label' => __( 'Places', 'rayetun-events-calendar' ),
+				'main'  => $places['text'],
+				'after' => self::meter( $places['fill'] ),
+			);
+		}
+		if ( '' !== (string) $event['cost'] ) {
+			$rows[] = array(
+				'icon'  => 'ticket',
+				'label' => __( 'Price', 'rayetun-events-calendar' ),
+				'main'  => (string) $event['cost'],
+			);
+		}
+
+		$html  = '<aside class="rayec-single rayec-stick' . Frontend::theme_class() . '" aria-label="' . esc_attr__( 'Book a place', 'rayetun-events-calendar' ) . '" data-wp-interactive="rayec" data-wp-router-region="rayec-stick-' . $id . '">';
+		$html .= self::detail_rows( $rows, 'rayec-details--stick' );
+		$dates = self::upcoming_dates( $event );
+		if ( 0 !== $left || count( $dates ) > 1 ) {
+			$html .= '<a class="' . esc_attr( self::button_class( 'rayec-stick__go' ) ) . '" href="#rayec-register-' . $id . '">' . esc_html( self::go_label( $dates ) ) . '</a>';
+		}
+		return $html . '</aside>';
+	}
+
+	/**
+	 * The booking card: on the event page after the description, and in the
+	 * Event registration block anywhere else.
+	 *
+	 * @param array<string, mixed>                                   $event   Event.
+	 * @param array{0: DateTimeImmutable, 1: DateTimeImmutable}|null $times   The date being shown.
+	 * @param string                                                 $heading Heading, when not "Register".
+	 * @param string                                                 $layout  "card", "compact" or "split"; empty for the site's choice.
+	 * @param bool                                                   $intro   Lead with the event's image, title, date and place, for a card away from the event page.
+	 * @param bool                                                   $hints   Show the help under the fields; off, it is still read out.
+	 * @return string
+	 */
+	public static function render( array $event, ?array $times, string $heading = '', string $layout = '', bool $intro = false, bool $hints = true ): string {
+		$id     = (int) $event['id'];
+		$layout = isset( self::layouts()[ $layout ] ) ? $layout : (string) Plugin::setting( 'booking_layout' );
+		$layout = isset( self::layouts()[ $layout ] ) ? $layout : 'card';
+		$status = self::status_box( $event );
+
+		// Someone who came to cancel sees only that, not the form to book again.
+		if ( ( '' !== Frontend::param( 'rayec_cancel' ) || empty( $event['rsvp']['enabled'] ) ) ) {
+			return '' !== $status ? '<section class="rayec-section rayec-rsvp" id="rayec-register-' . $id . '"><div class="rayec-book rayec-book--' . $layout . '">' . $status . '</div></section>' : '';
+		}
+
+		// With the script, booking happens without leaving the page: the
+		// form is sent in the background and only this card is redrawn. The
+		// form works the same without it.
+		wp_enqueue_script_module( 'rayec-view' );
+		$open  = '<section class="rayec-section rayec-rsvp" id="rayec-register-' . $id . '" aria-labelledby="rayec-register-title-' . $id . '" data-wp-interactive="rayec" data-wp-router-region="rayec-book-' . $id . '" ' . wp_interactivity_data_wp_context( array( 'busy' => false ) ) . ' data-wp-on--submit="actions.book">';
+		$open .= '<div class="rayec-book rayec-book--' . $layout . ( $intro ? ' has-intro' : '' ) . '">';
+		$dates = self::is_open( $event ) ? self::upcoming_dates( $event ) : array();
+		$head  = self::head( $event, $dates, $times, $heading, 'split' !== $layout, $intro );
+		$close = '</div></section>';
+
+		$message = '';
+		if ( ! self::is_open( $event ) ) {
+			$why     = array(
+				'cancelled' => __( 'Registration is closed because this event has been cancelled.', 'rayetun-events-calendar' ),
+				'postponed' => __( 'Registration is closed until a new date is announced.', 'rayetun-events-calendar' ),
+			);
+			$message = $why[ $event['event_status'] ] ?? __( 'Registration is closed.', 'rayetun-events-calendar' );
+		} elseif ( ! $dates ) {
+			$message = __( 'There are no dates to register for at the moment.', 'rayetun-events-calendar' );
+		} elseif ( ! array_filter( $dates, static fn( $date ) => null === $date['left'] || $date['left'] > 0 ) ) {
+			$message = count( $dates ) > 1 ? __( 'Every date coming up is full.', 'rayetun-events-calendar' ) : __( 'This event is full.', 'rayetun-events-calendar' );
+		}
+		if ( '' !== $message ) {
+			return $open . $head . $status . '<p class="rayec-book__closed">' . esc_html( $message ) . '</p>' . $close;
+		}
+
+		$errors = self::errors_for( $event );
+		$form   = self::form( $event, $dates, $times, $layout, $hints );
+
+		if ( Frontend::param( 'rayec_registered' ) === (string) $id ) {
+			// Just booked: the form folds away, so nobody books twice by accident.
+			$form = '<details class="rayec-book__again"><summary>' . esc_html__( 'Register someone else, or for another date', 'rayetun-events-calendar' ) . '</summary>' . $form . '</details>';
+		} elseif ( 'compact' === $layout ) {
+			// One button; the browser's own disclosure opens the form, no script needed.
+			$form = '<details class="rayec-book__open"' . ( $errors ? ' open' : '' ) . '><summary class="' . esc_attr( self::button_class( 'rayec-book__toggle' ) ) . '">' . esc_html( self::go_label( $dates ) ) . '</summary>' . $form . '</details>';
+		}
+
+		if ( 'split' === $layout ) {
+			return $open . '<div class="rayec-book__split"><div class="rayec-book__aside">' . $head . self::summary( $event, $dates, $times ) . '</div><div class="rayec-book__main">' . $status . $form . '</div></div>' . $close;
+		}
+		return $open . $head . $status . $form . $close;
+	}
+
+	/**
+	 * The card's heading, and a line saying what is on offer.
+	 *
+	 * @param array<string, mixed>                                   $event   Event.
+	 * @param array<int, array<string, mixed>>                       $dates   Dates that can be chosen.
+	 * @param array{0: DateTimeImmutable, 1: DateTimeImmutable}|null $times   The date being shown.
+	 * @param string                                                 $heading Heading, when not "Register".
+	 * @param bool                                                   $line    Whether to add the line.
+	 * @param bool                                                   $intro   Lead with the event's image, title, date and place.
+	 * @return string
+	 */
+	private static function head( array $event, array $dates, ?array $times, string $heading, bool $line, bool $intro = false ): string {
+		$id   = (int) $event['id'];
+		$html = '';
+		if ( $intro && ! empty( $event['image']['url'] ) ) {
+			// The title below says what it shows, so the image is decorative.
+			$html .= '<img class="rayec-book__image" src="' . esc_url( $event['image']['url'] ) . '" alt="" loading="lazy" decoding="async" width="' . esc_attr( (string) $event['image']['width'] ) . '" height="' . esc_attr( (string) $event['image']['height'] ) . '">';
+		}
+		$html .= '<div class="rayec-book__head">';
+		if ( $intro ) {
+			// Away from the event page, the card names the event and links to it.
+			$html .= '<h2 class="rayec-book__title" id="rayec-register-title-' . $id . '"><a href="' . esc_url( (string) get_permalink( $id ) ) . '">' . esc_html( $event['title'] ) . '</a></h2>';
+			$meta  = array();
+			if ( $line ) {
+				if ( $event['rrule'] && '' !== (string) $event['rrule_text'] ) {
+					$meta[] = (string) $event['rrule_text'];
+				} elseif ( $times ) {
+					$meta[] = Occurrences::format_range( $times[0], $times[1], (bool) $event['all_day'] );
+				}
+				$meta[] = self::where_short( $event );
+			}
+			$meta = array_filter( $meta );
+			if ( $meta ) {
+				$html .= '<p class="rayec-book__meta">' . esc_html( implode( ' · ', $meta ) ) . '</p>';
+			}
+		} else {
+			$html .= '<h2 class="rayec-book__title" id="rayec-register-title-' . $id . '">' . esc_html( '' !== $heading ? $heading : __( 'Register', 'rayetun-events-calendar' ) ) . '</h2>';
+		}
+		if ( ! $line || ! $dates ) {
+			return $html . '</div>';
+		}
+
+		$parts = array();
+		if ( '' !== (string) $event['cost'] ) {
+			$parts[] = (string) $event['cost'];
+		}
+		$capacity = (int) $event['rsvp']['capacity'];
+		if ( $intro ) {
+			// The date and the repeat are in the line above; say only the places.
+			$single = 1 === count( $dates ) && ! $event['rrule'];
+			if ( $capacity && $single && null !== $dates[0]['left'] ) {
+				/* translators: 1: places left, 2: places in total. */
+				$parts[] = sprintf( _n( '%1$d of %2$d place left', '%1$d of %2$d places left', $dates[0]['left'], 'rayetun-events-calendar' ), $dates[0]['left'], $capacity );
+			} elseif ( $capacity ) {
+				/* translators: %d: places on each date. */
+				$parts[] = sprintf( _n( '%d place on each date', '%d places on each date', $capacity, 'rayetun-events-calendar' ), $capacity );
+			}
+		} elseif ( count( $dates ) > 1 || $event['rrule'] ) {
+			if ( '' !== (string) $event['rrule_text'] ) {
+				$parts[] = (string) $event['rrule_text'];
+			}
+			if ( $capacity ) {
+				/* translators: %d: places on each date. */
+				$parts[] = sprintf( _n( '%d place on each date', '%d places on each date', $capacity, 'rayetun-events-calendar' ), $capacity );
+			}
+		} else {
+			$parts[] = $dates[0]['short'];
+			if ( null !== $dates[0]['left'] ) {
+				/* translators: 1: places left, 2: places in total. */
+				$parts[] = sprintf( _n( '%1$d of %2$d place left', '%1$d of %2$d places left', $dates[0]['left'], 'rayetun-events-calendar' ), $dates[0]['left'], $capacity );
+			}
+		}
+		if ( $parts ) {
+			$html .= '<p class="rayec-book__status">' . esc_html( implode( ' · ', $parts ) ) . '</p>';
+		}
+		return $html . '</div>';
+	}
+
+	/**
+	 * The event details beside the form, in the split template.
 	 *
 	 * @param array<string, mixed>                                   $event Event.
 	 * @param array<int, array<string, mixed>>                       $dates Dates that can be chosen.
 	 * @param array{0: DateTimeImmutable, 1: DateTimeImmutable}|null $times The date being shown.
 	 * @return string
 	 */
-	private static function form( array $event, array $dates, ?array $times ): string {
-		$errors = (array) ( self::$form['errors'] ?? array() );
-		$values = (array) ( self::$form['values'] ?? array() );
-		$user   = wp_get_current_user();
-
-		$chosen = (string) ( $values['start'] ?? '' );
-		if ( '' === $chosen && $times ) {
-			$chosen = self::local_start( $event, $times[0] );
+	private static function summary( array $event, array $dates, ?array $times ): string {
+		// The date the form is open on, so the two sides never disagree; the
+		// script changes these rows when another date is chosen.
+		$start = self::chosen_start( $event, $dates, $times );
+		$date  = $dates[0];
+		foreach ( $dates as $candidate ) {
+			if ( $candidate['start'] === $start ) {
+				$date = $candidate;
+				break;
+			}
 		}
-		$name  = (string) ( $values['name'] ?? ( $user->exists() ? $user->display_name : '' ) );
-		$email = (string) ( $values['email'] ?? ( $user->exists() ? $user->user_email : '' ) );
 
-		$labels = array(
-			'date'   => 'rayec-rsvp-date',
-			'name'   => 'rayec-rsvp-name',
-			'email'  => 'rayec-rsvp-email',
-			'places' => 'rayec-rsvp-places',
-			'access' => 'rayec-rsvp-access',
+		$rows  = array(
+			array(
+				'icon'  => 'calendar',
+				'label' => __( 'Date', 'rayetun-events-calendar' ),
+				'main'  => (string) $date['date'],
+				'sub'   => (string) $event['rrule_text'],
+				'pick'  => 'date',
+			),
+			array(
+				'icon'  => 'clock',
+				'label' => __( 'Time', 'rayetun-events-calendar' ),
+				'main'  => (string) $date['time'],
+				'pick'  => 'time',
+			),
 		);
+		$where = self::where_row( $event );
+		if ( $where ) {
+			$rows[] = $where;
+		}
+		$capacity = (int) $event['rsvp']['capacity'];
+		if ( $capacity && null !== $date['left'] ) {
+			$places = self::places_text( (int) $date['left'], $capacity );
+			$rows[] = array(
+				'icon'  => 'users',
+				'label' => __( 'Places', 'rayetun-events-calendar' ),
+				'main'  => $places['text'],
+				'pick'  => 'places',
+				'after' => self::meter( $places['fill'] ),
+			);
+		}
+		if ( '' !== (string) $event['cost'] ) {
+			$rows[] = array(
+				'icon'  => 'ticket',
+				'label' => __( 'Price', 'rayetun-events-calendar' ),
+				'main'  => (string) $event['cost'],
+			);
+		}
+		return self::detail_rows( $rows, 'rayec-details--aside' );
+	}
+
+	/**
+	 * The errors from a failed submission, when they belong to this event's form.
+	 *
+	 * @param array<string, mixed> $event Event.
+	 * @return array<string, string>
+	 */
+	private static function errors_for( array $event ): array {
+		return ( (int) ( self::$form['event'] ?? 0 ) === (int) $event['id'] ) ? (array) ( self::$form['errors'] ?? array() ) : array();
+	}
+
+	/**
+	 * The registration form.
+	 *
+	 * Built to the pattern that works with or without a screen reader: every
+	 * field has a visible label, the optional ones say so in words (most are
+	 * required, so marking those would only add noise; the browser is told
+	 * through the required attribute), and when something is wrong a summary
+	 * at the top links to each field, which carries its own message too.
+	 *
+	 * @param array<string, mixed>                                   $event  Event.
+	 * @param array<int, array<string, mixed>>                       $dates  Dates that can be chosen.
+	 * @param array{0: DateTimeImmutable, 1: DateTimeImmutable}|null $times  The date being shown.
+	 * @param string                                                 $layout Template.
+	 * @param bool                                                   $hints  Show the help under the fields.
+	 * @return string
+	 */
+	private static function form( array $event, array $dates, ?array $times, string $layout, bool $hints = true ): string {
+		$errors = self::errors_for( $event );
+		$values = $errors ? (array) ( self::$form['values'] ?? array() ) : array();
+		$user   = wp_get_current_user();
+		$id     = (int) $event['id'];
+		$chosen = self::chosen_start( $event, $dates, $times );
+		$name   = (string) ( $values['name'] ?? ( $user->exists() ? $user->display_name : '' ) );
+		$email  = (string) ( $values['email'] ?? ( $user->exists() ? $user->user_email : '' ) );
+		// With the help turned off in the block, it is still read out.
+		$hint = 'rayec-field__hint' . ( $hints ? '' : ' rayec-sr' );
 
 		$html = '';
 		if ( $errors ) {
-			$html .= '<div class="rayec-notice rayec-notice--error" id="rayec-register-errors" tabindex="-1" aria-labelledby="rayec-register-errors-title">';
-			$html .= '<h3 class="rayec-notice__title" id="rayec-register-errors-title">' . esc_html__( 'Please check the form', 'rayetun-events-calendar' ) . '</h3><ul>';
+			$html .= '<div class="rayec-notice rayec-notice--error" id="rayec-register-errors-' . $id . '" tabindex="-1" aria-labelledby="rayec-register-errors-title-' . $id . '">';
+			$html .= '<h3 class="rayec-notice__title" id="rayec-register-errors-title-' . $id . '">' . esc_html__( 'Please check the form', 'rayetun-events-calendar' ) . '</h3><ul>';
 			foreach ( $errors as $field => $message ) {
-				$html .= isset( $labels[ $field ] )
-					? '<li><a href="#' . esc_attr( $labels[ $field ] ) . '">' . esc_html( $message ) . '</a></li>'
+				$html .= in_array( $field, array( 'date', 'name', 'email', 'places', 'access' ), true )
+					? '<li><a href="#' . esc_attr( self::fid( $event, $field ) ) . '">' . esc_html( $message ) . '</a></li>'
 					: '<li>' . esc_html( $message ) . '</li>';
 			}
 			$html .= '</ul></div>';
 		}
 
-		$action = self::date_url( $event, '' !== $chosen ? $chosen : $dates[0]['start'] ) . '#rayec-register-errors';
-		$html  .= '<form class="rayec-form" method="post" action="' . esc_url( $action ) . '" novalidate>';
-		$html  .= wp_nonce_field( 'rayec_rsvp_' . $event['id'], 'rayec_rsvp_nonce', false, false );
+		$html .= '<form class="rayec-form rayec-book__form" method="post" action="' . esc_url( self::current_url() . '#rayec-register-errors-' . $id ) . '" novalidate>';
+		$html .= wp_nonce_field( 'rayec_rsvp_' . $id, 'rayec_rsvp_nonce', false, false );
+		$html .= '<input type="hidden" name="rayec_rsvp_event" value="' . $id . '">';
 
-		// The date.
+		// The date: a choice for a series, a fixed value for a single date.
 		if ( count( $dates ) > 1 ) {
-			$html .= '<div class="rayec-field">' . self::label( 'date', __( 'Date', 'rayetun-events-calendar' ), true );
-			$html .= self::error( 'date', $errors );
-			$html .= '<select id="rayec-rsvp-date" name="rayec_rsvp_date" required' . self::described( 'date', $errors ) . '>';
+			$html .= '<div class="rayec-field">' . self::label( $event, 'date', __( 'Date', 'rayetun-events-calendar' ) );
+			$html .= self::error( $event, 'date', $errors );
+			// Choosing a date redraws the details beside the form from these.
+			$html .= '<select id="' . esc_attr( self::fid( $event, 'date' ) ) . '" name="rayec_rsvp_date" required data-wp-on--change="actions.pick"' . self::described( $event, 'date', $errors ) . '>';
 			foreach ( $dates as $date ) {
 				$full   = null !== $date['left'] && $date['left'] < 1;
 				$suffix = '';
+				$data   = ' data-date="' . esc_attr( $date['date'] ) . '" data-time="' . esc_attr( $date['time'] ) . '"';
 				if ( $full ) {
 					$suffix = ' (' . __( 'full', 'rayetun-events-calendar' ) . ')';
 				} elseif ( null !== $date['left'] ) {
 					/* translators: %d: places left. */
 					$suffix = ' (' . sprintf( _n( '%d place left', '%d places left', $date['left'], 'rayetun-events-calendar' ), $date['left'] ) . ')';
 				}
-				$html .= '<option value="' . esc_attr( $date['start'] ) . '"' . selected( $chosen, $date['start'], false ) . disabled( $full, true, false ) . '>' . esc_html( $date['short'] . $suffix ) . '</option>';
+				if ( null !== $date['left'] ) {
+					$places = self::places_text( (int) $date['left'], (int) $event['rsvp']['capacity'] );
+					$data  .= ' data-places="' . esc_attr( $places['text'] ) . '" data-fill="' . (int) $places['fill'] . '"';
+				}
+				$html .= '<option value="' . esc_attr( $date['start'] ) . '"' . $data . selected( $chosen, $date['start'], false ) . disabled( $full, true, false ) . '>' . esc_html( $date['short'] . $suffix ) . '</option>';
 			}
 			$html .= '</select></div>';
 		} else {
-			$only  = $dates[0];
-			$html .= '<input type="hidden" name="rayec_rsvp_date" value="' . esc_attr( $only['start'] ) . '">';
-			$html .= self::error( 'date', $errors );
-			if ( null !== $only['left'] ) {
-				/* translators: %d: places left. */
-				$html .= '<p class="rayec-rsvp__left">' . esc_html( sprintf( _n( '%d place left.', '%d places left.', $only['left'], 'rayetun-events-calendar' ), $only['left'] ) ) . '</p>';
-			}
+			$html .= '<input type="hidden" name="rayec_rsvp_date" value="' . esc_attr( $dates[0]['start'] ) . '">';
+			$html .= self::error( $event, 'date', $errors );
 		}
 
-		// Name and email.
-		$html .= '<div class="rayec-field">' . self::label( 'name', __( 'Your name', 'rayetun-events-calendar' ), true ) . self::error( 'name', $errors );
-		$html .= '<input type="text" id="rayec-rsvp-name" name="rayec_rsvp_name" autocomplete="name" required maxlength="190" value="' . esc_attr( $name ) . '"' . self::described( 'name', $errors ) . '></div>';
+		// Name and email, side by side where there is room.
+		$html .= '<div class="rayec-book__row">';
+		$html .= '<div class="rayec-field">' . self::label( $event, 'name', __( 'Your name', 'rayetun-events-calendar' ) ) . self::error( $event, 'name', $errors );
+		$html .= '<input type="text" id="' . esc_attr( self::fid( $event, 'name' ) ) . '" name="rayec_rsvp_name" autocomplete="name" required maxlength="190" value="' . esc_attr( $name ) . '"' . self::described( $event, 'name', $errors ) . '></div>';
+		$html .= '<div class="rayec-field">' . self::label( $event, 'email', __( 'Email address', 'rayetun-events-calendar' ) ) . self::error( $event, 'email', $errors );
+		$html .= '<input type="email" id="' . esc_attr( self::fid( $event, 'email' ) ) . '" name="rayec_rsvp_email" autocomplete="email" required maxlength="190" spellcheck="false" value="' . esc_attr( $email ) . '"' . self::described( $event, 'email', $errors, self::fid( $event, 'email-hint' ) ) . '>';
+		$html .= '<p class="' . esc_attr( $hint ) . '" id="' . esc_attr( self::fid( $event, 'email-hint' ) ) . '">' . esc_html__( 'Your confirmation and calendar file go here.', 'rayetun-events-calendar' ) . '</p></div>';
+		$html .= '</div>';
 
-		$html .= '<div class="rayec-field">' . self::label( 'email', __( 'Email address', 'rayetun-events-calendar' ), true );
-		$html .= '<p class="rayec-field__hint" id="rayec-rsvp-email-hint">' . esc_html__( 'Your confirmation and calendar file are sent here.', 'rayetun-events-calendar' ) . '</p>';
-		$html .= self::error( 'email', $errors );
-		$html .= '<input type="email" id="rayec-rsvp-email" name="rayec_rsvp_email" autocomplete="email" required maxlength="190" spellcheck="false" value="' . esc_attr( $email ) . '"' . self::described( 'email', $errors, 'rayec-rsvp-email-hint' ) . '></div>';
-
-		// Places, when one person may book more than one.
+		// Places, when one person may book more than one. It always has a
+		// value, so it is not marked optional.
 		$max = (int) $event['rsvp']['max'];
 		if ( $max > 1 ) {
 			$picked = max( 1, min( $max, (int) ( $values['places'] ?? 1 ) ) );
-			$html  .= '<div class="rayec-field">' . self::label( 'places', __( 'Places', 'rayetun-events-calendar' ), false );
-			$html  .= '<p class="rayec-field__hint" id="rayec-rsvp-places-hint">' . esc_html__( 'Including you.', 'rayetun-events-calendar' ) . '</p>';
-			$html  .= self::error( 'places', $errors );
-			$html  .= '<select id="rayec-rsvp-places" name="rayec_rsvp_places"' . self::described( 'places', $errors, 'rayec-rsvp-places-hint' ) . '>';
+			$html  .= '<div class="rayec-field rayec-field--short">' . self::label( $event, 'places', __( 'Number of places', 'rayetun-events-calendar' ) );
+			$html  .= self::error( $event, 'places', $errors );
+			$html  .= '<select id="' . esc_attr( self::fid( $event, 'places' ) ) . '" name="rayec_rsvp_places"' . self::described( $event, 'places', $errors, self::fid( $event, 'places-hint' ) ) . '>';
 			for ( $i = 1; $i <= $max; $i++ ) {
 				$html .= '<option value="' . $i . '"' . selected( $picked, $i, false ) . '>' . $i . '</option>';
 			}
-			$html .= '</select></div>';
+			$html .= '</select><p class="' . $hint . '" id="' . esc_attr( self::fid( $event, 'places-hint' ) ) . '">' . esc_html__( 'Including you.', 'rayetun-events-calendar' ) . '</p></div>';
 		}
 
 		// Access requirements.
 		if ( $event['rsvp']['access'] ) {
-			$html .= '<div class="rayec-field">' . self::label( 'access', __( 'Access requirements', 'rayetun-events-calendar' ), false );
-			$html .= '<p class="rayec-field__hint" id="rayec-rsvp-access-hint">' . esc_html__( 'Anything that would help you take part, such as step-free access, a sign language interpreter, a quiet space or a seat near the front. Only the organiser sees this.', 'rayetun-events-calendar' ) . '</p>';
-			$html .= '<textarea id="rayec-rsvp-access" name="rayec_rsvp_access" rows="3" maxlength="2000" aria-describedby="rayec-rsvp-access-hint">' . esc_textarea( (string) ( $values['access'] ?? '' ) ) . '</textarea></div>';
+			$html .= '<div class="rayec-field">' . self::label( $event, 'access', __( 'Access requirements', 'rayetun-events-calendar' ), true );
+			$html .= '<p class="' . esc_attr( $hint ) . '" id="' . esc_attr( self::fid( $event, 'access-hint' ) ) . '">' . esc_html__( 'For example step-free access, a sign language interpreter or a quiet space. Only the organiser sees this.', 'rayetun-events-calendar' ) . '</p>';
+			$html .= '<textarea id="' . esc_attr( self::fid( $event, 'access' ) ) . '" name="rayec_rsvp_access" rows="2" maxlength="2000" aria-describedby="' . esc_attr( self::fid( $event, 'access-hint' ) ) . '">' . esc_textarea( (string) ( $values['access'] ?? '' ) ) . '</textarea></div>';
 		}
 
 		/**
 		 * Filters extra HTML inside the registration form, before the button.
 		 *
-		 * @param string               $html   Extra fields. Empty by default.
-		 * @param array<string, mixed> $event  Event.
-		 * @param array<string, mixed> $values What was submitted, when the form is drawn again.
+		 * @param string                $html   Extra fields. Empty by default.
+		 * @param array<string, mixed>  $event  Event.
+		 * @param array<string, mixed>  $values What was submitted, when the form is drawn again.
 		 * @param array<string, string> $errors Errors by field.
 		 */
 		$html .= (string) apply_filters( 'rayec_registration_fields', '', $event, $values, $errors );
 
 		// A field only a robot fills in. Hidden from sight and from screen readers.
-		$html .= '<div class="rayec-hp" aria-hidden="true"><label for="rayec-rsvp-website">' . esc_html__( 'Leave this empty', 'rayetun-events-calendar' ) . '</label><input type="text" id="rayec-rsvp-website" name="rayec_rsvp_website" tabindex="-1" autocomplete="off"></div>';
+		$html .= '<div class="rayec-hp" aria-hidden="true"><label for="' . esc_attr( self::fid( $event, 'website' ) ) . '">' . esc_html__( 'Leave this empty', 'rayetun-events-calendar' ) . '</label><input type="text" id="' . esc_attr( self::fid( $event, 'website' ) ) . '" name="rayec_rsvp_website" tabindex="-1" autocomplete="off"></div>';
 
-		$privacy = __( 'Your name and email address are used only to manage your place.', 'rayetun-events-calendar' );
-		$policy  = get_privacy_policy_url();
-		$html   .= '<p class="rayec-field__hint">' . esc_html( $privacy ) . ( $policy ? ' <a href="' . esc_url( $policy ) . '">' . esc_html__( 'Privacy policy', 'rayetun-events-calendar' ) . '</a>' : '' ) . '</p>';
+		$label = 'compact' === $layout ? __( 'Confirm my place', 'rayetun-events-calendar' ) : __( 'Register', 'rayetun-events-calendar' );
+		$html .= '<button type="submit" class="' . esc_attr( self::button_class( 'rayec-book__submit' ) ) . '" data-wp-class--is-busy="context.busy" data-wp-bind--aria-disabled="context.busy">' . esc_html( $label ) . '</button>';
 
-		$html .= '<p class="rayec-actions"><button type="submit" class="rayec-btn rayec-btn--primary">' . esc_html__( 'Register', 'rayetun-events-calendar' ) . '</button></p>';
+		$policy = get_privacy_policy_url();
+		$html  .= '<p class="rayec-book__privacy">' . esc_html__( 'Your name and email address are used only to manage your place.', 'rayetun-events-calendar' ) . ( $policy ? ' <a href="' . esc_url( $policy ) . '">' . esc_html__( 'Privacy policy', 'rayetun-events-calendar' ) . '</a>' : '' ) . '</p>';
 		return $html . '</form>';
 	}
 
 	/**
-	 * A field label, saying in words whether it is required.
+	 * A field label, saying in words when the field is optional.
 	 *
-	 * @param string $field    Field key.
-	 * @param string $text     Label.
-	 * @param bool   $required Required.
+	 * @param array<string, mixed> $event    Event.
+	 * @param string               $field    Field key.
+	 * @param string               $text     Label.
+	 * @param bool                 $optional Optional.
 	 * @return string
 	 */
-	private static function label( string $field, string $text, bool $required ): string {
-		$note = $required ? __( '(required)', 'rayetun-events-calendar' ) : __( '(optional)', 'rayetun-events-calendar' );
-		return '<label class="rayec-field__label" for="rayec-rsvp-' . esc_attr( $field ) . '">' . esc_html( $text ) . ' <span class="rayec-field__req">' . esc_html( $note ) . '</span></label>';
+	private static function label( array $event, string $field, string $text, bool $optional = false ): string {
+		$note = $optional ? ' <span class="rayec-field__req">' . esc_html__( '(optional)', 'rayetun-events-calendar' ) . '</span>' : '';
+		return '<label class="rayec-field__label" for="' . esc_attr( self::fid( $event, $field ) ) . '">' . esc_html( $text ) . $note . '</label>';
 	}
 
 	/**
 	 * A field's own error message.
 	 *
+	 * @param array<string, mixed>  $event  Event.
 	 * @param string                $field  Field key.
 	 * @param array<string, string> $errors Errors.
 	 * @return string
 	 */
-	private static function error( string $field, array $errors ): string {
+	private static function error( array $event, string $field, array $errors ): string {
 		if ( empty( $errors[ $field ] ) ) {
 			return '';
 		}
-		return '<p class="rayec-field__error" id="rayec-rsvp-' . esc_attr( $field ) . '-error"><span class="rayec-sr">' . esc_html__( 'Error:', 'rayetun-events-calendar' ) . ' </span>' . esc_html( $errors[ $field ] ) . '</p>';
+		return '<p class="rayec-field__error" id="' . esc_attr( self::fid( $event, $field . '-error' ) ) . '"><span class="rayec-sr">' . esc_html__( 'Error:', 'rayetun-events-calendar' ) . ' </span>' . esc_html( $errors[ $field ] ) . '</p>';
 	}
 
 	/**
 	 * The aria attributes that tie a field to its hint and its error.
 	 *
+	 * @param array<string, mixed>  $event  Event.
 	 * @param string                $field  Field key.
 	 * @param array<string, string> $errors Errors.
 	 * @param string                $hint   Hint element ID.
 	 * @return string
 	 */
-	private static function described( string $field, array $errors, string $hint = '' ): string {
-		$ids = array_filter( array( $hint, empty( $errors[ $field ] ) ? '' : 'rayec-rsvp-' . $field . '-error' ) );
+	private static function described( array $event, string $field, array $errors, string $hint = '' ): string {
+		$ids = array_filter( array( empty( $errors[ $field ] ) ? '' : self::fid( $event, $field . '-error' ), $hint ) );
 		$out = $ids ? ' aria-describedby="' . esc_attr( implode( ' ', $ids ) ) . '"' : '';
 		return $out . ( empty( $errors[ $field ] ) ? '' : ' aria-invalid="true"' );
 	}
@@ -1296,41 +1943,45 @@ class Registrations {
 	 * @return string
 	 */
 	private static function status_box( array $event ): string {
-		if ( '1' === Frontend::param( 'rayec_registered' ) ) {
-			return '<div class="rayec-notice rayec-notice--ok" id="rayec-register-status" tabindex="-1"><p><strong>' . esc_html__( 'You are registered.', 'rayetun-events-calendar' ) . '</strong> ' . esc_html__( 'We have emailed you the details, with a calendar file and a link to cancel if your plans change.', 'rayetun-events-calendar' ) . '</p></div>';
+		$id = (int) $event['id'];
+		if ( Frontend::param( 'rayec_registered' ) === (string) $id ) {
+			return '<div class="rayec-notice rayec-notice--ok" id="rayec-register-status-' . $id . '" tabindex="-1"><p><strong>' . esc_html__( 'You are registered.', 'rayetun-events-calendar' ) . '</strong> ' . esc_html__( 'We have emailed you the details, with a calendar file and a link to cancel if your plans change.', 'rayetun-events-calendar' ) . '</p></div>';
 		}
-		if ( '1' === Frontend::param( 'rayec_cancelled' ) ) {
-			return '<div class="rayec-notice rayec-notice--ok" id="rayec-register-status" tabindex="-1"><p><strong>' . esc_html__( 'Your place has been cancelled.', 'rayetun-events-calendar' ) . '</strong> ' . esc_html__( 'Thank you for letting us know.', 'rayetun-events-calendar' ) . '</p></div>';
+		if ( Frontend::param( 'rayec_cancelled' ) === (string) $id ) {
+			return '<div class="rayec-notice rayec-notice--ok" id="rayec-register-status-' . $id . '" tabindex="-1"><p><strong>' . esc_html__( 'Your place has been cancelled.', 'rayetun-events-calendar' ) . '</strong> ' . esc_html__( 'Thank you for letting us know.', 'rayetun-events-calendar' ) . '</p></div>';
 		}
 
-		$id  = absint( Frontend::param( 'rayec_cancel' ) );
+		$reg = absint( Frontend::param( 'rayec_cancel' ) );
 		$key = Frontend::param( 'rayec_key' );
-		if ( ! $id || '' === $key ) {
+		if ( ! $reg || '' === $key ) {
 			return '';
 		}
 
 		$error = (string) ( self::$form['cancel_error'] ?? '' );
-		$row   = self::get( $id );
-		$valid = $row && (int) $row->event_id === (int) $event['id'] && self::token_matches( $row, $key ) && in_array( $row->status, array( 'confirmed', 'pending', 'waitlisted' ), true );
+		$row   = self::get( $reg );
+		if ( $row && (int) $row->event_id !== $id ) {
+			return '';
+		}
+		$valid = $row && self::token_matches( $row, $key ) && in_array( $row->status, array( 'confirmed', 'pending', 'waitlisted' ), true );
 		if ( ! $valid ) {
 			$message = '' !== $error ? $error : __( 'This cancellation link does not work any more. The place may already have been cancelled.', 'rayetun-events-calendar' );
-			return '<div class="rayec-notice" id="rayec-register-status" tabindex="-1"><p>' . esc_html( $message ) . '</p></div>';
+			return '<div class="rayec-notice" id="rayec-register-status-' . $id . '" tabindex="-1"><p>' . esc_html( $message ) . '</p></div>';
 		}
 
 		// Cancelling takes a button press, never just opening the link: mail
 		// programs open links to check them, and that must not cancel anything.
-		$html  = '<div class="rayec-notice" id="rayec-register-status" tabindex="-1">';
+		$html  = '<div class="rayec-notice" id="rayec-register-status-' . $id . '" tabindex="-1">';
 		$html .= '<h3 class="rayec-notice__title">' . esc_html__( 'Cancel your place?', 'rayetun-events-calendar' ) . '</h3>';
 		if ( '' !== $error ) {
 			$html .= '<p class="rayec-field__error">' . esc_html( $error ) . '</p>';
 		}
 		/* translators: 1: person's name, 2: event title, 3: date and time. */
 		$html .= '<p>' . esc_html( sprintf( _n( '%1$s, this gives up your place at %2$s on %3$s.', '%1$s, this gives up your places at %2$s on %3$s.', (int) $row->places, 'rayetun-events-calendar' ), $row->name, $event['title'], self::when( $event, (string) $row->occurrence_start ) ) ) . '</p>';
-		$html .= '<form method="post" action="' . esc_url( self::date_url( $event, (string) $row->occurrence_start ) . '#rayec-register-status' ) . '">';
-		$html .= wp_nonce_field( 'rayec_cancel_' . $id, 'rayec_cancel_nonce', false, false );
-		$html .= '<input type="hidden" name="rayec_cancel_place" value="' . esc_attr( (string) $id ) . '">';
+		$html .= '<form method="post" action="' . esc_url( self::date_url( $event, (string) $row->occurrence_start ) . '#rayec-register-status-' . $id ) . '">';
+		$html .= wp_nonce_field( 'rayec_cancel_' . $reg, 'rayec_cancel_nonce', false, false );
+		$html .= '<input type="hidden" name="rayec_cancel_place" value="' . esc_attr( (string) $reg ) . '">';
 		$html .= '<input type="hidden" name="rayec_key" value="' . esc_attr( $key ) . '">';
-		$html .= '<p class="rayec-actions"><button type="submit" class="rayec-btn rayec-btn--primary">' . esc_html( _n( 'Cancel my place', 'Cancel my places', (int) $row->places, 'rayetun-events-calendar' ) ) . '</button> ';
+		$html .= '<p class="rayec-actions"><button type="submit" class="' . esc_attr( self::button_class() ) . '">' . esc_html( _n( 'Cancel my place', 'Cancel my places', (int) $row->places, 'rayetun-events-calendar' ) ) . '</button> ';
 		$html .= '<a class="rayec-btn" href="' . esc_url( self::date_url( $event, (string) $row->occurrence_start ) ) . '">' . esc_html__( 'Keep my place', 'rayetun-events-calendar' ) . '</a></p>';
 		return $html . '</form></div>';
 	}
@@ -1820,6 +2471,216 @@ class Registrations {
 	private static function reply_to( array $event ): array {
 		$organiser = $event['organizer'] ?? null;
 		return ( $organiser && is_email( (string) $organiser['email'] ) ) ? array( 'Reply-To: ' . $organiser['email'] ) : array();
+	}
+
+	/*
+	 * ---------------------------------------------------------------------
+	 * The organiser writes to the people booked
+	 * ---------------------------------------------------------------------
+	 */
+
+	/**
+	 * Everyone expected on one coming date, or on every coming date: one entry
+	 * per person, however many places or dates they booked.
+	 *
+	 * @param array<string, mixed> $event Event.
+	 * @param string               $start Local start of one date, or empty for every coming date.
+	 * @return array<string, object[]> Bookings, by lowercased email address.
+	 */
+	public static function message_people( array $event, string $start = '' ): array {
+		$ids    = '' === $start
+			? self::ids_between( (int) $event['id'], self::local_now( $event ), '', self::EXPECTING )
+			: self::ids_between( (int) $event['id'], $start, $start, self::EXPECTING );
+		$people = array();
+		foreach ( $ids as $id ) {
+			$row = self::get( $id );
+			if ( $row && is_email( $row->email ) ) {
+				$people[ strtolower( $row->email ) ][] = $row;
+			}
+		}
+		return $people;
+	}
+
+	/**
+	 * Send the organiser's own message about the event to the people booked.
+	 *
+	 * This is news about something they booked (a new room, parking, what to
+	 * bring), so it needs no consent beyond the booking. Inviting them to
+	 * something else is marketing, and is not what this is for.
+	 *
+	 * The first batch goes at once, so a small event hears straight away;
+	 * any more go by WP-Cron, a batch a minute. Someone who cancels in the
+	 * meantime is not written to.
+	 *
+	 * @param array<string, mixed> $event   Event.
+	 * @param string               $start   Local start of one date, or empty for every coming date.
+	 * @param string               $subject Subject, as plain text.
+	 * @param string               $message Message, as plain text.
+	 * @return array{people: int, sent: int, queued: int}|WP_Error
+	 */
+	public static function send_message( array $event, string $start, string $subject, string $message ) {
+		if ( '' !== $start && $start <= self::local_now( $event ) ) {
+			return new WP_Error( 'rayec_past', __( 'That date has passed. Choose a date that is still to come.', 'rayetun-events-calendar' ), array( 'status' => 400 ) );
+		}
+		$people = self::message_people( $event, $start );
+		if ( ! $people ) {
+			return new WP_Error( 'rayec_nobody', __( 'Nobody is booked on that date, so there is nobody to write to.', 'rayetun-events-calendar' ), array( 'status' => 400 ) );
+		}
+
+		$groups = array_values( array_map( static fn( $rows ) => array_map( static fn( $row ) => (int) $row->id, $rows ), $people ) );
+		$sent   = self::message_group( $event, $subject, $message, array_splice( $groups, 0, self::MESSAGE_BATCH ) );
+		if ( $groups ) {
+			$queue         = (array) get_option( self::MESSAGE_QUEUE, array() );
+			$key           = wp_generate_password( 12, false );
+			$queue[ $key ] = array(
+				'event'   => (int) $event['id'],
+				'subject' => $subject,
+				'message' => $message,
+				'groups'  => $groups,
+			);
+			update_option( self::MESSAGE_QUEUE, $queue, false );
+			wp_schedule_single_event( time() + MINUTE_IN_SECONDS, self::MESSAGE_HOOK, array( $key ) );
+		}
+
+		// A short record, so the organiser can see what went and does not send it twice.
+		$log = (array) get_post_meta( (int) $event['id'], '_rayec_messages', true );
+		array_unshift(
+			$log,
+			array(
+				'time'    => time(),
+				'subject' => $subject,
+				'start'   => $start,
+				'people'  => count( $people ),
+				'by'      => get_current_user_id(),
+			)
+		);
+		update_post_meta( (int) $event['id'], '_rayec_messages', array_slice( array_filter( $log ), 0, 10 ) );
+
+		return array(
+			'people' => count( $people ),
+			'sent'   => $sent,
+			'queued' => count( $groups ),
+		);
+	}
+
+	/**
+	 * The next batch of a message still being sent. Runs on WP-Cron.
+	 *
+	 * @param string $key Job.
+	 * @return int How many emails were sent.
+	 */
+	public static function send_message_batch( $key ): int {
+		$queue = (array) get_option( self::MESSAGE_QUEUE, array() );
+		$job   = $queue[ (string) $key ] ?? null;
+		if ( ! is_array( $job ) ) {
+			return 0;
+		}
+		$event  = Event::get( (int) $job['event'] );
+		$groups = (array) $job['groups'];
+		$sent   = $event ? self::message_group( $event, (string) $job['subject'], (string) $job['message'], array_splice( $groups, 0, self::MESSAGE_BATCH ) ) : 0;
+
+		if ( $event && $groups ) {
+			$queue[ (string) $key ]['groups'] = $groups;
+			wp_schedule_single_event( time() + MINUTE_IN_SECONDS, self::MESSAGE_HOOK, array( (string) $key ) );
+		} else {
+			unset( $queue[ (string) $key ] );
+		}
+		if ( $queue ) {
+			update_option( self::MESSAGE_QUEUE, $queue, false );
+		} else {
+			delete_option( self::MESSAGE_QUEUE );
+		}
+		return $sent;
+	}
+
+	/**
+	 * Email a batch of people, one email each.
+	 *
+	 * @param array<string, mixed> $event   Event.
+	 * @param string               $subject Subject.
+	 * @param string               $message Message.
+	 * @param array<int, int[]>    $groups  Each person's booking IDs.
+	 * @return int How many emails were sent.
+	 */
+	private static function message_group( array $event, string $subject, string $message, array $groups ): int {
+		$sent = 0;
+		foreach ( $groups as $ids ) {
+			$rows = array();
+			foreach ( (array) $ids as $id ) {
+				$row = self::get( (int) $id );
+				// Cancelled since the message was written: not told.
+				if ( $row && (int) $row->event_id === (int) $event['id'] && in_array( $row->status, self::EXPECTING, true ) ) {
+					$rows[] = $row;
+				}
+			}
+			if ( $rows ) {
+				$sent += (int) self::send_note( $event, $rows, $subject, $message );
+			}
+		}
+		return $sent;
+	}
+
+	/**
+	 * One person's copy of the organiser's message: their name, the message,
+	 * then what they booked and where the event page is, so it is never a
+	 * mystery why it came.
+	 *
+	 * @param array<string, mixed> $event   Event.
+	 * @param object[]             $rows    That person's bookings.
+	 * @param string               $subject Subject.
+	 * @param string               $message Message.
+	 * @return bool
+	 */
+	private static function send_note( array $event, array $rows, string $subject, string $message ): bool {
+		$first = $rows[0];
+		$dates = array();
+		foreach ( $rows as $row ) {
+			$dates[] = '- ' . self::when( $event, (string) $row->occurrence_start );
+		}
+		$lines = array_merge(
+			array(
+				/* translators: %s: the person's name. */
+				sprintf( __( 'Hello %s,', 'rayetun-events-calendar' ), $first->name ),
+				'',
+				$message,
+				'',
+				'--',
+				/* translators: %s: event title. */
+				sprintf( _n( 'You are getting this because you are booked for %s:', 'You are getting this because you are booked for %s, on:', count( $dates ), 'rayetun-events-calendar' ), $event['title'] ),
+			),
+			$dates,
+			array(
+				'',
+				/* translators: %s: web address. */
+				sprintf( __( 'Event page: %s', 'rayetun-events-calendar' ), $event['permalink'] ),
+				__( 'If you can no longer come, the link in your confirmation email cancels your place.', 'rayetun-events-calendar' ),
+				'',
+				wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+			)
+		);
+		return self::mail( (string) $first->email, $subject, $lines, self::reply_to( $event ) );
+	}
+
+	/**
+	 * The messages sent about an event, newest first, as the dashboard shows them.
+	 *
+	 * @param array<string, mixed> $event Event.
+	 * @return array<int, array{time: string, subject: string, to: string, people: int}>
+	 */
+	public static function messages_sent( array $event ): array {
+		$out = array();
+		foreach ( (array) get_post_meta( (int) $event['id'], '_rayec_messages', true ) as $item ) {
+			if ( ! is_array( $item ) || empty( $item['time'] ) ) {
+				continue;
+			}
+			$out[] = array(
+				'time'    => wp_date( (string) get_option( 'date_format', 'F j, Y' ) . ' ' . Plugin::time_format(), (int) $item['time'] ),
+				'subject' => (string) $item['subject'],
+				'to'      => '' === (string) $item['start'] ? __( 'Every coming date', 'rayetun-events-calendar' ) : self::when( $event, (string) $item['start'] ),
+				'people'  => (int) $item['people'],
+			);
+		}
+		return $out;
 	}
 
 	/*

@@ -332,7 +332,11 @@ class Occurrences {
 				$values[] = (string) $args['format'];
 			}
 		}
-		if ( ! empty( $args['access'] ) ) {
+		if ( ! empty( $args['access'] ) && isset( Event::access_features()[ (string) $args['access'] ] ) ) {
+			// Access laid on at the event: the event's own serialized list.
+			$where[]  = "EXISTS ( SELECT 1 FROM {$wpdb->postmeta} em WHERE em.post_id = o.event_id AND em.meta_key = '_rayec_event_access' AND em.meta_value LIKE %s )";
+			$values[] = '%' . $wpdb->esc_like( '"' . (string) $args['access'] . '"' ) . '%';
+		} elseif ( ! empty( $args['access'] ) ) {
 			// The venue's features are a serialized list, so the key is matched inside it.
 			$where[]  = "EXISTS ( SELECT 1 FROM {$wpdb->postmeta} vm INNER JOIN {$wpdb->postmeta} am ON am.post_id = vm.meta_value AND am.meta_key = '_rayec_access' WHERE vm.post_id = o.event_id AND vm.meta_key = '_rayec_venue_id' AND am.meta_value LIKE %s )";
 			$values[] = '%' . $wpdb->esc_like( '"' . (string) $args['access'] . '"' ) . '%';
@@ -475,5 +479,44 @@ class Occurrences {
 		}
 		/* translators: 1: start date, 2: start time, 3: end date and time. */
 		return sprintf( __( '%1$s, %2$s to %3$s', 'rayetun-events-calendar' ), $day, $from, wp_date( 'l, ' . $date_format . ' ' . $time_format, $end->getTimestamp(), $tz ) );
+	}
+
+	/**
+	 * The same range in two parts, the day and the time, for a layout that
+	 * gives each its own line instead of wrapping one long one.
+	 *
+	 * @param DateTimeImmutable $start   Start.
+	 * @param DateTimeImmutable $end     End.
+	 * @param bool              $all_day All-day event.
+	 * @return array{date: string, time: string, day: string, weekday: string} The date with its weekday, the time, and the date and weekday apart for a narrow box.
+	 */
+	public static function split_range( DateTimeImmutable $start, DateTimeImmutable $end, bool $all_day ): array {
+		$date_format = (string) get_option( 'date_format', 'F j, Y' );
+		$time_format = Plugin::time_format();
+		$tz          = $start->getTimezone();
+		$same_day    = $start->format( 'Y-m-d' ) === $end->format( 'Y-m-d' );
+		$day         = wp_date( 'l, ' . $date_format, $start->getTimestamp(), $tz );
+		$apart       = array(
+			'day'     => wp_date( $date_format, $start->getTimestamp(), $tz ),
+			'weekday' => wp_date( 'l', $start->getTimestamp(), $tz ),
+		);
+
+		if ( $all_day ) {
+			return $apart + array(
+				/* translators: 1: start date, 2: end date. */
+				'date' => $same_day ? $day : sprintf( __( '%1$s to %2$s', 'rayetun-events-calendar' ), $day, wp_date( 'l, ' . $date_format, $end->getTimestamp(), $tz ) ),
+				'time' => __( 'All day', 'rayetun-events-calendar' ),
+			);
+		}
+
+		$from  = wp_date( $time_format, $start->getTimestamp(), $tz );
+		$until = $same_day
+			? wp_date( $time_format, $end->getTimestamp(), $tz )
+			: wp_date( 'l, ' . $date_format . ' ' . $time_format, $end->getTimestamp(), $tz );
+		return $apart + array(
+			'date' => $day,
+			/* translators: 1: start time, 2: end time, or end date and time. */
+			'time' => sprintf( __( '%1$s to %2$s', 'rayetun-events-calendar' ), $from, $until ),
+		);
 	}
 }

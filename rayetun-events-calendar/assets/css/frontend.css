@@ -17,6 +17,24 @@
 	--rayec-on-accent: #fff;
 }
 
+/* Corners chosen in a block's settings. Soft is the default above. */
+.rayec-corners--square {
+	--rayec-radius: 0;
+	--rayec-btn-radius: 0;
+	--rayec-field-radius: 0;
+}
+
+.rayec-corners--round {
+	--rayec-radius: 22px;
+	--rayec-btn-radius: 999px;
+	--rayec-field-radius: 14px;
+}
+
+/* Corners chosen in the block reach the theme's button as well. */
+:is(.rayec-corners--square, .rayec-corners--round) .rayec-themebtn {
+	border-radius: var(--rayec-btn-radius);
+}
+
 /* ------------------------------------------------------------------ Themes
  * With "Follow your theme" nothing is painted at all: every surface is
  * transparent and every line is mixed from the inherited text colour, so the
@@ -135,7 +153,7 @@
 	min-width: 44px;
 	padding: 8px 16px;
 	border: 1px solid var(--rayec-line);
-	border-radius: 10px;
+	border-radius: var(--rayec-btn-radius, 10px);
 	background: transparent;
 	color: inherit;
 	font: inherit;
@@ -440,8 +458,10 @@
 	font-weight: 600;
 }
 
+/* Past days lose the tint, not the text: fading the text took the time
+   below 4.5:1. */
 .rayec-month td.is-past .rayec-chip {
-	opacity: 0.75;
+	background: transparent;
 }
 
 .rayec-repeat {
@@ -463,6 +483,18 @@
 	display: block;
 	font-size: 0.85em;
 	font-weight: 700;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+}
+
+/* Places left on a chip: words, not a colour, say it. */
+.rayec-chip__places {
+	display: block;
+	font-size: 0.85em;
+	font-weight: 700;
+}
+
+.rayec-chip__places--full {
 	letter-spacing: 0.03em;
 	text-transform: uppercase;
 }
@@ -849,10 +881,108 @@
 	vertical-align: middle;
 }
 
+/* A few places left: the accent, as well as the words. Full: the plain badge. */
+.rayec-badge--few {
+	color: var(--rayec-accent-strong);
+}
+
 /* Single event */
 .rayec-single {
 	container-type: inline-size;
 	margin: 0 0 32px;
+}
+
+/* ------------------------------------------------- Event page side column
+ * When the date can be booked, the page is two columns where the theme gives
+ * it the room: the description, and beside it a small booking box that stays
+ * in view. Below that width the box is not shown at all; the facts panel at
+ * the top has the same date, places and button.
+ */
+.rayec-event-layout {
+	container: rayec-event / inline-size;
+}
+
+/* The wrapper is wide only to make room for the box; the description keeps
+   the theme's reading width whether the box shows or not. */
+.rayec-event-layout__main {
+	min-width: 0;
+	max-width: var(--wp--style--global--content-size, none);
+	margin-inline: auto;
+}
+
+.rayec-stick {
+	display: none;
+}
+
+@container rayec-event (min-width: 980px) {
+	.rayec-event-layout__grid {
+		display: grid;
+		grid-template-columns: minmax(0, var(--wp--style--global--content-size, 680px)) minmax(240px, 300px);
+		gap: 48px;
+		justify-content: center;
+		align-items: start;
+	}
+
+	.rayec-stick {
+		display: block;
+		position: sticky;
+		top: calc(var(--wp-admin--admin-bar--height, 0px) + 24px);
+		margin: 0;
+		padding: 20px;
+		border: 1px solid var(--rayec-line);
+		border-radius: var(--rayec-radius);
+		background: var(--rayec-bg, var(--rayec-soft));
+	}
+}
+
+/* Wider still: the description stays under the title, the box in the margin. */
+@container rayec-event (min-width: 1320px) {
+	.rayec-event-layout__grid {
+		grid-template-columns: minmax(0, 1fr) minmax(0, var(--wp--style--global--content-size, 680px)) minmax(0, 1fr);
+		gap: 40px;
+	}
+
+	.rayec-event-layout__main {
+		grid-column: 2;
+	}
+
+	.rayec-stick {
+		grid-column: 3;
+		max-width: 300px;
+	}
+}
+
+.rayec-stick .rayec-details {
+	gap: 14px;
+}
+
+.rayec-stick .rayec-detail {
+	grid-template-columns: 2.25rem minmax(0, 1fr);
+	gap: 12px;
+}
+
+.rayec-stick .rayec-detail__icon {
+	width: 2.25rem;
+	height: 2.25rem;
+}
+
+.rayec-stick__go {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	min-height: 48px;
+	margin-top: 16px;
+}
+
+.rayec-theme--contrast.rayec-stick {
+	border-width: 2px;
+}
+
+@media (forced-colors: active) {
+	.rayec-stick {
+		border: 1px solid CanvasText;
+	}
 }
 
 .rayec-single--after {
@@ -882,9 +1012,10 @@
 	margin: 0;
 }
 
+/* The first column holds the date, the longest line, so it is the wider. */
 @container (min-width: 600px) {
 	.rayec-facts__grid {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
 	}
 }
 
@@ -923,10 +1054,20 @@
 	line-height: 1.45;
 }
 
+/* An icon beside wrapping text sits centred on the first line: half the
+   line's height, less half its own. */
 .rayec-fact__note .rayec-ico {
 	flex: 0 0 auto;
-	margin-top: 2px;
+	margin-top: 0.2em;
+	margin-top: calc((1lh - 16px) / 2);
 	color: var(--rayec-accent);
+}
+
+/* The time belongs with the date above it, so it is not muted. */
+.rayec-fact__time {
+	color: inherit;
+	font-size: 1em;
+	font-weight: 500;
 }
 
 .rayec-facts .rayec-actions {
@@ -1767,12 +1908,14 @@
 	font-weight: 400;
 }
 
+/* Help sits a step below the label: 15px whatever size the theme sets its
+   text, so a large theme font does not turn every hint into a paragraph. */
 .rayec-field__hint,
 .rayec-rsvp__left {
 	margin: 0;
 	color: var(--rayec-muted);
-	font-size: 0.92em;
-	line-height: 1.45;
+	font-size: 0.9375rem;
+	line-height: 1.4;
 }
 
 .rayec-field__error {
@@ -1790,7 +1933,7 @@
 	min-height: 44px;
 	padding: 10px 12px;
 	border: 1px solid color-mix(in srgb, currentColor 55%, transparent);
-	border-radius: 8px;
+	border-radius: var(--rayec-field-radius, 8px);
 	background: transparent;
 	color: inherit;
 	font: inherit;
@@ -1888,7 +2031,7 @@
 }
 
 /* After booking, the form folds away behind this. */
-.rayec-rsvp__again > summary {
+.rayec-book__again > summary {
 	display: flex;
 	align-items: center;
 	min-height: 44px;
@@ -1898,11 +2041,436 @@
 	cursor: pointer;
 }
 
-.rayec-rsvp__again > summary:focus-visible {
+.rayec-book__again > summary:focus-visible {
 	outline: 3px solid var(--rayec-accent);
 	outline-offset: 2px;
 }
 
-.rayec-rsvp__again[open] > summary {
+.rayec-book__again[open] > summary {
 	margin-bottom: 16px;
+}
+
+/* Access laid on at the event, in the facts panel. */
+.rayec-fact__list {
+	display: grid;
+	gap: 4px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-fact__list li {
+	display: flex;
+	align-items: flex-start;
+	gap: 7px;
+	font-weight: 600;
+	line-height: 1.35;
+}
+
+.rayec-fact__list .rayec-ico {
+	flex: 0 0 auto;
+	margin-top: 0.2em;
+	margin-top: calc((1lh - 16px) / 2);
+	color: var(--rayec-accent);
+}
+
+/* The registration block: the same form, without the section rule above it. */
+.rayec-register .rayec-rsvp {
+	margin: 0;
+	padding-top: 0;
+	border-top: 0;
+}
+
+/* ---------------------------------------------------------- Booking card
+ * One panel for the whole booking, in the same family as the facts panel at
+ * the top of the event page. Three templates: card, compact (one button that
+ * opens the form) and split (the event's details beside the form). Container
+ * queries, so each fits the column it is put in, not just the screen.
+ */
+.rayec-book {
+	container-type: inline-size;
+	padding: clamp(18px, 3vw, 28px);
+	border: 1px solid var(--rayec-line);
+	border-radius: var(--rayec-radius);
+	background: var(--rayec-soft);
+}
+
+.rayec-book__head {
+	margin: 0 0 18px;
+}
+
+.rayec-book .rayec-book__title {
+	margin: 0;
+	font-size: 1.3em;
+	font-weight: 700;
+	line-height: 1.25;
+}
+
+.rayec-book__status {
+	margin: 6px 0 0;
+	color: var(--rayec-muted);
+	font-weight: 500;
+	line-height: 1.45;
+}
+
+.rayec-book .rayec-form {
+	display: grid;
+	gap: 18px;
+	max-width: none;
+}
+
+.rayec-book__row {
+	display: grid;
+	gap: 18px;
+}
+
+/* Side by side, each field keeps its own height instead of stretching to
+   the tallest one in the row. */
+.rayec-book .rayec-field {
+	align-content: start;
+}
+
+@container (min-width: 520px) {
+	.rayec-book__row {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.rayec-field--short {
+		max-width: 12rem;
+	}
+}
+
+/* The theme sets its own weights; hints in a light weight and a muted
+   colour together are too faint to read comfortably, so they stay regular. */
+.rayec-book .rayec-field__hint,
+.rayec-book__privacy {
+	font-weight: 400;
+}
+
+.rayec-book .rayec-field__hint {
+	margin: 0;
+}
+
+.rayec-book .rayec-field input + .rayec-field__hint,
+.rayec-book .rayec-field select + .rayec-field__hint {
+	margin-top: 0;
+}
+
+.rayec-book textarea {
+	min-height: 4.5em;
+}
+
+/* The Register button fills the card. */
+.rayec-book__submit,
+.rayec-book__toggle {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	min-height: 48px;
+	font-size: 1em;
+	cursor: pointer;
+}
+
+/* While the booking is being sent: a ring beside the label, and no second press. */
+.rayec-book__submit.is-busy {
+	gap: 0.6em;
+	cursor: progress;
+	opacity: 0.85;
+}
+
+.rayec-book__submit.is-busy::after {
+	content: "";
+	box-sizing: border-box;
+	width: 1em;
+	height: 1em;
+	border: 2px solid currentColor;
+	border-right-color: transparent;
+	border-radius: 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.rayec-book__submit.is-busy::after {
+		animation: rayec-spin 0.7s linear infinite;
+	}
+}
+
+@keyframes rayec-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* The theme's own button: only what the layout needs, never its colours. */
+.rayec-themebtn {
+	box-sizing: border-box;
+	text-align: center;
+	text-decoration: none;
+}
+
+.rayec-themebtn:focus-visible {
+	outline: 3px solid currentColor;
+	outline-offset: 3px;
+}
+
+/* Beside the theme's button: the same shape and type, as an outline. */
+.rayec-themebtn.rayec-themebtn--outline {
+	background: transparent;
+	color: inherit;
+	box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.rayec-themebtn.rayec-themebtn--outline:hover {
+	background: var(--rayec-soft);
+	color: inherit;
+}
+
+/* A block given its own accent colour paints the theme's button with it too. */
+.has-rayec-accent .rayec-themebtn:not(.rayec-themebtn--outline) {
+	background: var(--rayec-accent);
+	color: var(--rayec-on-accent);
+}
+
+.has-rayec-accent .rayec-themebtn:not(.rayec-themebtn--outline):hover {
+	background: var(--rayec-accent-strong);
+}
+
+.rayec-book__privacy {
+	margin: -4px 0 0;
+	color: var(--rayec-muted);
+	font-size: 0.875rem;
+	line-height: 1.45;
+	text-align: center;
+}
+
+.rayec-book__closed {
+	margin: 0;
+}
+
+.rayec-book .rayec-notice {
+	margin: 0 0 18px;
+	background: var(--rayec-bg, transparent);
+}
+
+/* Compact: the summary is the button; the browser's marker is not wanted. */
+.rayec-book__toggle {
+	list-style: none;
+}
+
+.rayec-book__toggle::-webkit-details-marker {
+	display: none;
+}
+
+.rayec-book__open[open] > .rayec-book__toggle {
+	margin-bottom: 20px;
+}
+
+/* Split: details on one side, the form on the other, where there is room. */
+.rayec-book__split {
+	display: grid;
+	gap: 22px;
+}
+
+/* The form side measures itself, so its fields sit side by side only when
+   the form column, not the whole card, has the room. */
+.rayec-book__main {
+	container-type: inline-size;
+	min-width: 0;
+}
+
+.rayec-book__aside {
+	padding-bottom: 20px;
+	border-bottom: 1px solid var(--rayec-line);
+}
+
+/* ------------------------------------------------------------ Detail rows
+ * The date, time, place, places and price, each led by an icon on a tint of
+ * the accent: beside the form in the split template, and in the box beside
+ * the event's description. The icons are decorative; each row starts with its
+ * name for screen readers.
+ */
+.rayec-details {
+	display: grid;
+	gap: 16px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.rayec-detail {
+	display: grid;
+	grid-template-columns: 2.5rem minmax(0, 1fr);
+	gap: 14px;
+	align-items: center;
+	margin: 0;
+}
+
+.rayec-detail__icon {
+	display: grid;
+	place-items: center;
+	width: 2.5rem;
+	height: 2.5rem;
+	border-radius: min(12px, var(--rayec-radius));
+	background: color-mix(in srgb, var(--rayec-accent) 12%, transparent);
+	color: var(--rayec-accent);
+}
+
+.rayec-detail__icon .rayec-ico {
+	width: 1.25rem;
+	height: 1.25rem;
+	vertical-align: 0;
+}
+
+.rayec-detail__text {
+	display: grid;
+	gap: 2px;
+	min-width: 0;
+}
+
+.rayec-detail__main {
+	font-weight: 600;
+	line-height: 1.3;
+	overflow-wrap: anywhere;
+}
+
+.rayec-detail__sub {
+	color: var(--rayec-muted);
+	font-size: 0.9375rem;
+	line-height: 1.4;
+}
+
+/* How much of the date is booked. The words above it say the same. */
+.rayec-meter {
+	display: block;
+	height: 6px;
+	margin-top: 6px;
+	overflow: hidden;
+	border-radius: 999px;
+	background: var(--rayec-line);
+}
+
+.rayec-meter__fill {
+	display: block;
+	height: 100%;
+	border-radius: inherit;
+	background: var(--rayec-accent);
+}
+
+.rayec-meter.is-full .rayec-meter__fill {
+	background: var(--rayec-muted);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.rayec-meter__fill {
+		transition: width 0.3s ease;
+	}
+}
+
+.rayec-fact .rayec-meter {
+	max-width: 16rem;
+	margin-top: 10px;
+}
+
+.rayec-theme--contrast .rayec-detail__icon {
+	border: 2px solid currentColor;
+	background: transparent;
+	color: inherit;
+}
+
+@media (forced-colors: active) {
+	.rayec-detail__icon,
+	.rayec-meter {
+		border: 1px solid CanvasText;
+	}
+
+	.rayec-meter__fill {
+		background: CanvasText;
+	}
+}
+
+@container (min-width: 560px) {
+	.rayec-book__split {
+		grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+		gap: 28px;
+	}
+
+	.rayec-book__aside {
+		padding: 0 28px 0 0;
+		border-bottom: 0;
+		border-inline-end: 1px solid var(--rayec-line);
+	}
+}
+
+/* The event at the top of the card, when the card is away from its page. */
+.rayec-book.has-intro {
+	--rayec-book-pad: clamp(18px, 3vw, 28px);
+	overflow: hidden;
+}
+
+.rayec-book__image {
+	display: block;
+	width: calc(100% + 2 * var(--rayec-book-pad));
+	max-width: none;
+	height: auto;
+	max-height: 280px;
+	margin: calc(-1 * var(--rayec-book-pad)) calc(-1 * var(--rayec-book-pad)) 20px;
+	aspect-ratio: 16 / 9;
+	object-fit: cover;
+}
+
+/* In the split template the image belongs to the details side. */
+.rayec-book--split .rayec-book__image {
+	width: 100%;
+	margin: 0 0 16px;
+	border-radius: calc(var(--rayec-radius) - 4px);
+}
+
+.rayec-book.has-intro .rayec-book__title {
+	font-size: 1.6em;
+	line-height: 1.2;
+}
+
+/* A heading that links to the event: plain until pointed at or focused. */
+.rayec-book__title a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.rayec-book__title a:hover,
+.rayec-book__title a:focus-visible {
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.15em;
+}
+
+.rayec-theme--contrast .rayec-book__title a {
+	text-decoration: underline;
+}
+
+.rayec-book__meta {
+	margin: 8px 0 0;
+	font-weight: 500;
+	line-height: 1.45;
+}
+
+.rayec-book.has-intro .rayec-book__head {
+	padding-bottom: 18px;
+	border-bottom: 1px solid var(--rayec-line);
+}
+
+/* On the event page the card is the section, so the section rule goes. */
+.rayec-single .rayec-rsvp {
+	padding-top: 0;
+	border-top: 0;
+}
+
+.rayec-theme--contrast .rayec-book {
+	border: 2px solid #000;
+	background: transparent;
+}
+
+@media (forced-colors: active) {
+	.rayec-book {
+		border: 1px solid CanvasText;
+	}
 }

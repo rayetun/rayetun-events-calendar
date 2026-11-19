@@ -12,6 +12,7 @@ import {
 	CheckboxControl,
 	SelectControl,
 	TextControl,
+	TextareaControl,
 	ToggleControl,
 } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
@@ -555,6 +556,53 @@ function GuardList( { guard } ) {
 	);
 }
 
+/** Access laid on at the event itself, beside the venue's own. */
+function AccessPanel() {
+	const [ meta, setMeta ] = useEntityProp( 'postType', POST_TYPE, 'meta' );
+	const access = Array.isArray( meta?._rayec_event_access )
+		? meta._rayec_event_access
+		: [];
+
+	return (
+		<PluginDocumentSettingPanel
+			name="rayec-access"
+			title={ __( 'Access at this event', 'rayetun-events-calendar' ) }
+			className="rayec-editor-panel"
+		>
+			{ Object.entries( config.eventAccess || {} ).map(
+				( [ key, label ] ) => (
+					<CheckboxControl
+						__nextHasNoMarginBottom
+						key={ key }
+						label={ label }
+						checked={ access.includes( key ) }
+						onChange={ ( on ) =>
+							setMeta( {
+								...meta,
+								_rayec_event_access: on
+									? [ ...access, key ]
+									: access.filter( ( item ) => item !== key ),
+							} )
+						}
+					/>
+				)
+			) }
+			<TextareaControl
+				__nextHasNoMarginBottom
+				label={ __(
+					'Anything else about access',
+					'rayetun-events-calendar'
+				) }
+				rows={ 2 }
+				value={ meta?._rayec_event_access_notes || '' }
+				onChange={ ( notes ) =>
+					setMeta( { ...meta, _rayec_event_access_notes: notes } )
+				}
+			/>
+		</PluginDocumentSettingPanel>
+	);
+}
+
 function GuardPanels() {
 	const guard = useGuard();
 	const title = guard
@@ -597,6 +645,7 @@ registerPlugin( 'rayec-event-details', {
 			<>
 				<WhenPanel />
 				<WherePanel />
+				<AccessPanel />
 				<GuardPanels />
 			</>
 		);

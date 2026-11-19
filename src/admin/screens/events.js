@@ -9,6 +9,7 @@ import {
 	TextControl,
 } from '@wordpress/components';
 import { __, sprintf, _n } from '@wordpress/i18n';
+import { applyFilters } from '@wordpress/hooks';
 
 import { api, useApp } from '../lib';
 import { Icon } from '../icons';
@@ -19,6 +20,7 @@ import {
 	ErrorNote,
 	Empty,
 	StatusBadges,
+	bookedLabel,
 } from '../components/ui';
 
 const TABS = [
@@ -47,12 +49,27 @@ const COLUMNS = [
 	{ key: 'organizer', label: __( 'Organizer', 'rayetun-events-calendar' ) },
 	{ key: 'categories', label: __( 'Categories', 'rayetun-events-calendar' ) },
 	{ key: 'cost', label: __( 'Cost', 'rayetun-events-calendar' ) },
+	{ key: 'booked', label: __( 'Booked', 'rayetun-events-calendar' ) },
 	{
 		key: 'access',
 		label: __( 'Accessibility', 'rayetun-events-calendar' ),
 	},
 ];
-const DEFAULT_COLUMNS = [ 'when', 'where', 'access' ];
+/**
+ * The built-in columns, then any an add-on appends. An add-on column is
+ * { key, label, value( event ) }, and value returns what the cell shows.
+ * Add-on columns always come after the built-in ones, so the headings and
+ * the cells line up.
+ *
+ * @return {Array<Object>} Columns.
+ */
+const allColumns = () => [
+	...COLUMNS,
+	...applyFilters( 'rayec.eventsColumns', [] ).filter(
+		( column ) => column && column.key && typeof column.value === 'function'
+	),
+];
+const DEFAULT_COLUMNS = [ 'when', 'where', 'booked', 'access' ];
 const COLUMNS_KEY = 'rayecEventColumns';
 
 const savedColumns = () => {
@@ -60,7 +77,7 @@ const savedColumns = () => {
 		const saved = JSON.parse( window.localStorage.getItem( COLUMNS_KEY ) );
 		if ( Array.isArray( saved ) ) {
 			return saved.filter( ( key ) =>
-				COLUMNS.some( ( column ) => column.key === key )
+				allColumns().some( ( column ) => column.key === key )
 			);
 		}
 	} catch ( e ) {
@@ -144,7 +161,7 @@ export default function Events() {
 
 	const applyView = ( view ) => {
 		const next = view.columns.filter( ( key ) =>
-			COLUMNS.some( ( column ) => column.key === key )
+			allColumns().some( ( column ) => column.key === key )
 		);
 		setTab( view.tab );
 		setSearch( view.search );
@@ -227,6 +244,21 @@ export default function Events() {
 						  }
 						: {}
 				);
+			} )
+			.catch( ( e ) => notify( e.message, { error: true } ) )
+			.finally( () => setWorking( false ) );
+	};
+
+	// An add-on's bulk action does its own work and says what it did.
+	const runAddonBulk = ( item ) => {
+		setWorking( true );
+		Promise.resolve( item.run( selected ) )
+			.then( ( message ) => {
+				setSelected( [] );
+				refresh();
+				if ( message ) {
+					notify( message );
+				}
 			} )
 			.catch( ( e ) => notify( e.message, { error: true } ) )
 			.finally( () => setWorking( false ) );
@@ -425,7 +457,7 @@ export default function Events() {
 								'rayetun-events-calendar'
 							) }
 						>
-							{ COLUMNS.map( ( column ) => (
+							{ allColumns().map( ( column ) => (
 								<MenuItem
 									key={ column.key }
 									role="menuitemcheckbox"
@@ -524,12 +556,14 @@ export default function Events() {
 							selected.length
 						) }
 					</strong>
-					{ BULK.map( ( item ) => (
+					{ applyFilters( 'rayec.eventsBulkActions', BULK ).map( ( item ) => (
 						<Button
 							key={ item.action }
 							variant="secondary"
 							disabled={ working }
-							onClick={ () => bulk( item.action ) }
+							onClick={ () =>
+								item.run ? runAddonBulk( item ) : bulk( item.action )
+							}
 						>
 							{ item.label }
 						</Button>
@@ -635,7 +669,7 @@ export default function Events() {
 										  ) }
 								</th>
 								) }
-								{ COLUMNS.filter(
+								{ allColumns().filter(
 									( column ) =>
 										column.key !== 'when' && shows( column.key )
 								).map( ( column ) => (
@@ -741,6 +775,14 @@ export default function Events() {
 									{ shows( 'cost' ) && (
 										<td>{ event.cost || '—' }</td>
 									) }
+									{ shows( 'booked' ) && (
+										<td>
+											{ bookedLabel(
+												event.next?.booked,
+												event.next?.capacity
+											) || '—' }
+										</td>
+									) }
 									{ shows( 'access' ) && (
 									<td>
 										<span
@@ -772,6 +814,16 @@ export default function Events() {
 										</span>
 									</td>
 									) }
+									{ allColumns()
+										.filter(
+											( column ) =>
+												column.value && shows( column.key )
+										)
+										.map( ( column ) => (
+											<td key={ column.key }>
+												{ column.value( event ) }
+											</td>
+										) ) }
 									<td className="rayec-table__actions">
 										<DropdownMenu
 											icon={ <Icon name="more" /> }

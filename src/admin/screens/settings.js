@@ -7,6 +7,7 @@ import {
 	SearchControl,
 } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
+import { applyFilters } from '@wordpress/hooks';
 
 import { api, useApp, weekdayNames } from '../lib';
 import {
@@ -16,6 +17,31 @@ import {
 	Loading,
 	ErrorNote,
 } from '../components/ui';
+
+/** The booking form templates; the same three the PHP side knows. */
+export const BOOKING_LAYOUTS = [
+	{
+		label: __(
+			'Card: the form in a panel, ready to fill in',
+			'rayetun-events-calendar'
+		),
+		value: 'card',
+	},
+	{
+		label: __(
+			'Compact: one Register button that opens the form',
+			'rayetun-events-calendar'
+		),
+		value: 'compact',
+	},
+	{
+		label: __(
+			'Split: the event details beside the form',
+			'rayetun-events-calendar'
+		),
+		value: 'split',
+	},
+];
 
 export default function Settings() {
 	const { notify, refresh } = useApp();
@@ -331,6 +357,22 @@ export default function Settings() {
 			),
 		},
 		{
+			key: 'booking_layout',
+			label: __( 'Booking form', 'rayetun-events-calendar' ),
+			help: __(
+				'How the registration form looks on event pages. The Event registration block can choose its own.',
+				'rayetun-events-calendar'
+			),
+			render: ( props ) => (
+				<SelectControl
+					{ ...props }
+					value={ form.booking_layout || 'card' }
+					options={ BOOKING_LAYOUTS }
+					onChange={ ( value ) => set( { booking_layout: value } ) }
+				/>
+			),
+		},
+		{
 			key: 'delete_data',
 			label: __(
 				'Delete all events and settings when the plugin is deleted',
@@ -354,7 +396,12 @@ export default function Settings() {
 	];
 
 	const needle = filter.trim().toLowerCase();
-	const visible = fields.filter(
+	// Add-ons add their own fields; they save with the rest.
+	const allFields = applyFilters( 'rayec.settingsFields', fields, {
+		form,
+		set,
+	} );
+	const visible = allFields.filter(
 		( field ) =>
 			! needle ||
 			`${ field.label } ${ field.help }`.toLowerCase().includes( needle )

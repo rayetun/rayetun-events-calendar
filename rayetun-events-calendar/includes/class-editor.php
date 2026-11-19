@@ -98,6 +98,35 @@ class Editor {
 				'auth_callback'     => $auth,
 			)
 		);
+		// Access laid on at the event itself.
+		register_post_meta(
+			Post_Types::EVENT,
+			'_rayec_event_access',
+			array(
+				'type'              => 'array',
+				'single'            => true,
+				'default'           => array(),
+				'show_in_rest'      => array(
+					'schema' => array(
+						'type'  => 'array',
+						'items' => array( 'type' => 'string' ),
+					),
+				),
+				'sanitize_callback' => array( Event::class, 'clean_access' ),
+				'auth_callback'     => $auth,
+			)
+		);
+		register_post_meta(
+			Post_Types::EVENT,
+			'_rayec_event_access_notes',
+			array(
+				'type'              => 'string',
+				'single'            => true,
+				'show_in_rest'      => true,
+				'sanitize_callback' => static fn( $value ) => sanitize_textarea_field( (string) $value ),
+				'auth_callback'     => $auth,
+			)
+		);
 	}
 
 	/**

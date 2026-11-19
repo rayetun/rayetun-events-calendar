@@ -10,7 +10,7 @@ import { __ } from '@wordpress/i18n';
 import { speak } from '@wordpress/a11y';
 
 import './admin.css';
-import { AppContext, config } from './lib';
+import { AppContext, config, api, useApp } from './lib';
 import { Icon } from './icons';
 import Home from './screens/home';
 import Planner from './screens/planner';
@@ -23,8 +23,11 @@ import Speakers from './screens/speakers';
 import Programs from './screens/programs';
 import ImportScreen from './screens/import';
 import { applyFilters } from '@wordpress/hooks';
+import domReady from '@wordpress/dom-ready';
+import * as ui from './components/ui';
 import EventDrawer from './components/event-drawer';
 import SetupGuide from './components/setup-guide';
+import CommandPalette from './components/command-palette';
 
 const CORE_SCREENS = [
 	{
@@ -93,7 +96,9 @@ const CORE_SCREENS = [
 ];
 
 // Add-ons (such as the Pro plugin) add their own screens through this filter.
-const SCREENS = applyFilters( 'rayec.screens', CORE_SCREENS );
+// Read once every script on the page has run (see the bottom of this file),
+// so an add-on works whether its script loads before this one or after it.
+let SCREENS = CORE_SCREENS;
 
 const currentPath = () => {
 	// "#/events/123" opens the events screen with that event in the drawer.
@@ -122,6 +127,23 @@ function App() {
 	} );
 	// The guide opens itself the first time; the header button brings it back.
 	const [ guide, setGuide ] = useState( false );
+	const [ palette, setPalette ] = useState( false );
+
+	// Ctrl or Cmd + K opens the palette from anywhere on the dashboard.
+	useEffect( () => {
+		const onKey = ( event ) => {
+			if (
+				( event.ctrlKey || event.metaKey ) &&
+				! event.altKey &&
+				event.key.toLowerCase() === 'k'
+			) {
+				event.preventDefault();
+				setPalette( true );
+			}
+		};
+		window.addEventListener( 'keydown', onKey );
+		return () => window.removeEventListener( 'keydown', onKey );
+	}, [] );
 	const [ setup, setSetup ] = useState( null );
 	const [ version, setVersion ] = useState( 0 );
 
@@ -291,6 +313,21 @@ function App() {
 							</span>
 						</Button>
 						<Button
+							variant="tertiary"
+							__next40pxDefaultSize
+							className="rayec-top__find"
+							onClick={ () => setPalette( true ) }
+							aria-keyshortcuts="Control+K Meta+K"
+						>
+							<Icon name="search" />
+							{ __( 'Find', 'rayetun-events-calendar' ) }
+							<kbd className="rayec-top__kbd" aria-hidden="true">
+								{ /Mac|iPhone|iPad/.test( window.navigator.platform || '' )
+									? '⌘K'
+									: 'Ctrl K' }
+							</kbd>
+						</Button>
+						<Button
 							variant="primary"
 							__next40pxDefaultSize
 							onClick={ () => setEditing( {} ) }
@@ -318,6 +355,16 @@ function App() {
 				onState={ ( state ) => setSetup( state ) }
 			/>
 
+			{ palette && (
+				<CommandPalette
+					screens={ SCREENS.filter(
+						( item ) => ! item.manage || config.canManage
+					) }
+					onClose={ () => setPalette( false ) }
+					onSetup={ () => setGuide( true ) }
+				/>
+			) }
+
 			{ editing !== null && (
 				<EventDrawer
 					target={ editing }
@@ -334,7 +381,19 @@ function App() {
 	);
 }
 
-const mount = document.getElementById( 'rayec-app' );
-if ( mount ) {
-	createRoot( mount ).render( <App /> );
-}
+/*
+ * The dashboard's own building blocks, for add-ons whose screens should look
+ * like the rest of it. Read them when rendering, not when a script loads.
+ */
+window.rayec = {
+	...( window.rayec || {} ),
+	ui: { ...ui, Icon, api, useApp, config },
+};
+
+domReady( () => {
+	const mount = document.getElementById( 'rayec-app' );
+	if ( mount ) {
+		SCREENS = applyFilters( 'rayec.screens', CORE_SCREENS );
+		createRoot( mount ).render( <App /> );
+	}
+} );

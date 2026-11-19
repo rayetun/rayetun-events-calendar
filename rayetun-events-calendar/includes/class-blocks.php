@@ -105,6 +105,35 @@ class Blocks {
 				'render'      => 'render_countdown',
 				'shortcode'   => 'rayec_countdown',
 			),
+			'rayec/register'      => array(
+				'title'       => __( 'Event registration', 'rayetun-events-calendar' ),
+				'description' => __( 'The registration form for one event, on any page.', 'rayetun-events-calendar' ),
+				'icon'        => 'groups',
+				'attributes'  => array(
+					'eventId'   => array(
+						'type'    => 'integer',
+						'default' => 0,
+					),
+					'layout'    => array(
+						'type'    => 'string',
+						'default' => '',
+					),
+					'showEvent' => array(
+						'type'    => 'boolean',
+						'default' => true,
+					),
+					'hints'     => array(
+						'type'    => 'boolean',
+						'default' => true,
+					),
+					'align'     => array(
+						'type'    => 'string',
+						'default' => '',
+					),
+				),
+				'render'      => 'render_register',
+				'shortcode'   => 'rayec_register',
+			),
 		);
 
 		foreach ( $blocks as $name => $block ) {
@@ -117,10 +146,16 @@ class Blocks {
 					'category'        => 'widgets',
 					'icon'            => $block['icon'],
 					'keywords'        => array( 'events', 'calendar' ),
-					'attributes'      => $block['attributes'],
-					'supports'        => array(
-						'html'  => false,
-						'align' => false,
+					'attributes'      => array_merge( $block['attributes'], Frontend::look_attributes() ),
+					'supports'        => array_merge(
+						Frontend::look_supports(),
+						array(
+							'html'          => false,
+							// The booking card can go wide on a landing page, where the split template has room.
+							'align'         => 'rayec/register' === $name ? array( 'wide', 'full' ) : false,
+							// The booking card books in place with the Interactivity API.
+							'interactivity' => 'rayec/register' === $name,
+						)
 					),
 					'editor_script'   => $editor,
 					'editor_style'    => 'rayec-frontend',
@@ -134,14 +169,12 @@ class Blocks {
 	/**
 	 * Block wrapper attributes, or a plain class when used as a shortcode.
 	 *
-	 * @param string $classes Class name.
+	 * @param string               $classes Class name.
+	 * @param array<string, mixed> $atts    Attributes, for the look chosen in the block's settings.
 	 * @return string
 	 */
-	private static function wrapper( string $classes ): string {
-		$classes .= Frontend::theme_class();
-		return \WP_Block_Supports::$block_to_render
-			? get_block_wrapper_attributes( array( 'class' => $classes ) )
-			: 'class="' . esc_attr( $classes ) . '"';
+	private static function wrapper( string $classes, array $atts = array() ): string {
+		return Frontend::wrapper_attributes( $classes . Frontend::theme_class(), $atts );
 	}
 
 	/**
@@ -220,7 +253,15 @@ class Blocks {
 	public static function render_mini( $atts ): string {
 		global $wp_locale;
 
-		$atts = shortcode_atts( array( 'category' => 0 ), is_array( $atts ) ? $atts : array(), 'rayec_mini_calendar' );
+		$atts = shortcode_atts(
+			array(
+				'category' => 0,
+				'accent'   => '',
+				'corners'  => '',
+			),
+			is_array( $atts ) ? $atts : array(),
+			'rayec_mini_calendar'
+		);
 		wp_enqueue_style( 'rayec-frontend' );
 		// For the hover and focus cards. The grid reads the same without it.
 		wp_enqueue_script( 'rayec-calendar' );
@@ -243,7 +284,7 @@ class Blocks {
 		$calendar = self::calendar_url();
 		$label    = wp_date( 'F Y', $month->getTimestamp(), $tz );
 
-		$html  = '<div ' . self::wrapper( 'rayec-cal rayec-mini' ) . '>';
+		$html  = '<div ' . self::wrapper( 'rayec-cal rayec-mini', $atts ) . '>';
 		$html .= '<div class="rayec-mini__bar">';
 		foreach ( array(
 			'-1 month' => __( 'Previous month', 'rayetun-events-calendar' ),
@@ -363,6 +404,8 @@ class Blocks {
 				'category' => 0,
 				'count'    => 5,
 				'images'   => false,
+				'accent'   => '',
+				'corners'  => '',
 			),
 			is_array( $atts ) ? $atts : array(),
 			'rayec_upcoming'
@@ -380,7 +423,7 @@ class Blocks {
 			)
 		);
 
-		$html = '<div ' . self::wrapper( 'rayec-cal rayec-up' . ( $images ? ' has-images' : '' ) ) . '>';
+		$html = '<div ' . self::wrapper( 'rayec-cal rayec-up' . ( $images ? ' has-images' : '' ), $atts ) . '>';
 		if ( ! $rows ) {
 			return $html . '<p class="rayec-cal__empty">' . esc_html__( 'There are no upcoming events.', 'rayetun-events-calendar' ) . '</p></div>';
 		}
@@ -461,10 +504,13 @@ class Blocks {
 	 * @return string
 	 */
 	public static function render_countdown( $atts ): string {
+		$atts = self::event_attribute( $atts );
 		$atts = shortcode_atts(
 			array(
 				'category' => 0,
 				'eventId'  => 0,
+				'accent'   => '',
+				'corners'  => '',
 			),
 			is_array( $atts ) ? $atts : array(),
 			'rayec_countdown'
@@ -491,7 +537,7 @@ class Blocks {
 		}
 
 		$event = $row ? Event::get( (int) $row->event_id ) : null;
-		$html  = '<div ' . self::wrapper( 'rayec-cal rayec-countdown' ) . '>';
+		$html  = '<div ' . self::wrapper( 'rayec-cal rayec-countdown', $atts ) . '>';
 		if ( ! $event ) {
 			return $html . '<p class="rayec-cal__empty">' . esc_html__( 'There is no event to count down to yet.', 'rayetun-events-calendar' ) . '</p></div>';
 		}
@@ -517,5 +563,81 @@ class Blocks {
 		$html .= '<p class="rayec-countdown__left" data-rayec-until="' . esc_attr( $start->format( 'c' ) ) . '" data-rayec-end="' . esc_attr( $end->format( 'c' ) ) . '">' . esc_html( $text ) . '</p>';
 
 		return $html . '</div>';
+	}
+	/**
+	 * The event attribute, however it was written.
+	 *
+	 * Blocks send "eventId"; WordPress lowercases shortcode attribute names, so
+	 * [rayec_countdown eventId="5"] arrives as "eventid", and people also write
+	 * event="5". All three mean the same.
+	 *
+	 * @param mixed $atts Attributes.
+	 * @return array<string, mixed>
+	 */
+	private static function event_attribute( $atts ): array {
+		$atts = is_array( $atts ) ? $atts : array();
+		foreach ( array( 'eventid', 'event' ) as $alias ) {
+			if ( ! isset( $atts['eventId'] ) && isset( $atts[ $alias ] ) ) {
+				$atts['eventId'] = $atts[ $alias ];
+			}
+		}
+		return $atts;
+	}
+
+	/**
+	 * Event registration block and [rayec_register] shortcode: one event's
+	 * registration form, anywhere on the site.
+	 *
+	 * The form posts to the event's own page, so checking it, confirming it
+	 * and saying so all happen there, exactly as for the form on that page.
+	 *
+	 * @param array<string, mixed>|string $atts Attributes.
+	 * @return string
+	 */
+	public static function render_register( $atts ): string {
+		$atts    = self::event_attribute( $atts );
+		$id      = (int) ( $atts['eventId'] ?? 0 );
+		$event   = $id ? Event::get( $id ) : null;
+		$preview = defined( 'REST_REQUEST' ) && REST_REQUEST;
+
+		if ( ! $event || 'publish' !== $event['post_status'] || empty( $event['rsvp']['enabled'] ) ) {
+			if ( ! $preview ) {
+				return '';
+			}
+			$note = ! $event || 'publish' !== $event['post_status']
+				? __( 'Choose a published event in the block settings.', 'rayetun-events-calendar' )
+				: __( 'This event is not taking registrations. Turn them on in the Registration section of the event.', 'rayetun-events-calendar' );
+			return '<div ' . self::wrapper( 'rayec-cal rayec-register', $atts ) . '><p class="rayec-cal__empty">' . esc_html( $note ) . '</p></div>';
+		}
+
+		// The event's own page has the form already.
+		if ( is_singular( Post_Types::EVENT ) && get_queried_object_id() === $id ) {
+			return '';
+		}
+
+		wp_enqueue_style( 'rayec-frontend' );
+		$dates = Frontend::current_occurrences( $event );
+		/* translators: %s: event title. */
+		$heading = sprintf( __( 'Register for %s', 'rayetun-events-calendar' ), $event['title'] );
+
+		// Away from the event page the card leads with the event itself: its
+		// image, title, date and place. Shortcodes say show_event="no" to leave it out.
+		$show = $atts['showEvent'] ?? $atts['show_event'] ?? $atts['showevent'] ?? true;
+		$show = self::yes( $show );
+		// The help under the fields; hints="no" keeps it for screen readers only.
+		$hints = self::yes( $atts['hints'] ?? true );
+
+		return '<div ' . self::wrapper( 'rayec-cal rayec-register', $atts ) . '>' . Registrations::render( $event, $dates[0] ?? null, $heading, sanitize_key( (string) ( $atts['layout'] ?? '' ) ), $show, $hints ) . '</div>';
+	}
+
+	/**
+	 * A yes or no from a block (true or false) or a shortcode ("no", "0",
+	 * "false" or "off" mean no).
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	private static function yes( $value ): bool {
+		return is_bool( $value ) ? $value : ! in_array( strtolower( (string) $value ), array( '0', 'no', 'false', 'off' ), true );
 	}
 }
