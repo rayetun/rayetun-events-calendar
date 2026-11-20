@@ -1,5 +1,5 @@
 /**
- * RayEtun Events Calendar — front-end enhancements.
+ * RayEtun Accessible Events Calendar — front-end enhancements.
  *
  * Everything on the page works without this file. With it:
  * 1. the month grid gains arrow-key navigation,

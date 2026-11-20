@@ -1,7 +1,7 @@
 <?php
 /**
- * Plugin Name:       RayEtun Events Calendar – Accessible Recurring Events & Event Management
- * Plugin URI:        https://rayetun.com/events-calendar/
+ * Plugin Name:       RayEtun Accessible Events Calendar
+ * Plugin URI:        https://wordpress.org/plugins/rayetun-events-calendar/
  * Description:       Accessible event calendar with recurring events, month, week, day and list views, venues, iCal import and export, blocks and shortcodes.
  * Version:           1.0.0
  * Requires at least: 6.9

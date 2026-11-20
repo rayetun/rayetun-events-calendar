@@ -40,6 +40,7 @@ class Installer {
 	 */
 	public static function deactivate(): void {
 		wp_clear_scheduled_hook( self::CRON_HOOK );
+		wp_clear_scheduled_hook( Occurrences::BATCH_HOOK );
 		flush_rewrite_rules();
 	}
 

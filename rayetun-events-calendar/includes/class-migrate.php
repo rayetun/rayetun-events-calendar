@@ -681,7 +681,7 @@ class Migrate {
 		if ( ! $target ) {
 			return;
 		}
-		wp_safe_redirect( $target, 301, 'RayEtun Events Calendar' );
+		wp_safe_redirect( $target, 301, 'RayEtun Accessible Events Calendar' );
 		exit;
 	}
 }

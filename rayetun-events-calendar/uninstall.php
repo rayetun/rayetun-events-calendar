@@ -12,6 +12,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 $rayec_settings = get_option( 'rayec_settings', array() );
 
 wp_clear_scheduled_hook( 'rayec_extend_occurrences' );
+wp_clear_scheduled_hook( 'rayec_extend_occurrences_batch' );
 wp_clear_scheduled_hook( 'rayec_sync_feeds' );
 // Emails still waiting to go: the plugin that would send them is leaving.
 wp_unschedule_hook( 'rayec_tell_registrants' );
