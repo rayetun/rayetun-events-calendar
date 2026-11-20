@@ -1,6 +1,6 @@
 <?php
 /**
- * Connection point for add-ons such as RayEtun Events Calendar Pro.
+ * Connection point for add-ons such as RayEtun Accessible Events Calendar Pro.
  *
  * The free plugin contains no premium code. A separate add-on plugin connects
  * itself through the hooks documented here.

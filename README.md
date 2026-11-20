@@ -1,4 +1,4 @@
-# RayEtun Events Calendar
+# RayEtun Accessible Events Calendar
 
 An accessible event calendar for WordPress: recurring events; month, week, day
 and list views; venues, organisers, speakers and programmes; iCalendar and CSV

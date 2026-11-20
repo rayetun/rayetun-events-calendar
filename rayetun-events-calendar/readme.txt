@@ -1,4 +1,4 @@
-=== RayEtun Events Calendar – Accessible Recurring Events & Event Management ===
+=== RayEtun Accessible Events Calendar ===
 Contributors:      rayetun
 Donate link:       https://wise.com/pay/me/mdrayhanu2
 Tags:              events, event calendar, recurring events, accessibility, calendar
@@ -13,7 +13,7 @@ Accessible event calendar with recurring events, month, week, day and list views
 
 == Description ==
 
-📅 **RayEtun Events Calendar** is a free **event calendar and event management plugin** for WordPress. Create one-off, multi-day and **recurring events**; show them in **month, week, day and list views**; keep **venues, organisers, speakers and programmes** on file; **import** from iCalendar feeds, `.ics` files and CSV spreadsheets; and let visitors **subscribe** in Google Calendar, Outlook or Apple Calendar.
+📅 **RayEtun Accessible Events Calendar** is a free **event calendar and event management plugin** for WordPress. Create one-off, multi-day and **recurring events**; show them in **month, week, day and list views**; keep **venues, organisers, speakers and programmes** on file; **import** from iCalendar feeds, `.ics` files and CSV spreadsheets; and let visitors **subscribe** in Google Calendar, Outlook or Apple Calendar.
 
 Accessibility is part of what ships, not a setting to find. The month grid is a real HTML table with arrow-key navigation, every control works before a line of JavaScript runs, and colour never carries meaning on its own. The **Accessibility Guard** then checks your own event content against **21 rules** before you publish, and tells you what to do about each one.
 
@@ -134,7 +134,7 @@ Figures from a test site holding **10,000 events and 216,528 dates**: **3.5 KB**
 
 = From your dashboard =
 
-1. Go to **Plugins → Add New** and search for **RayEtun Events Calendar**.
+1. Go to **Plugins → Add New** and search for **RayEtun Accessible Events Calendar**.
 2. Click **Install Now**, then **Activate**.
 
 = Manual upload =
@@ -221,15 +221,29 @@ Post in the [WordPress.org support forum](https://wordpress.org/support/plugin/r
 
 Connection points are documented in `includes/class-extensions.php`. The plugin contains **no locked code** — nothing is disabled waiting for a licence key.
 
+= 📦 Source code and build =
+
+The JavaScript in the `build/` folder (the dashboard, the block editor panels and the blocks) is compiled from human-readable source. The full source, including `src/`, `package.json` and the webpack configuration, is public at [github.com/rayetun/rayetun-events-calendar](https://github.com/rayetun/rayetun-events-calendar).
+
+To rebuild it:
+
+1. Install Node.js 20 or later.
+2. In the repository folder, run `npm install`.
+3. Run `npm run build`. This uses `@wordpress/scripts` and writes the files into `rayetun-events-calendar/build/`.
+
+`npm run start` rebuilds the files as you edit them. The scripts in `assets/js/` are shipped as written and are not compiled.
+
 == External Services ==
 
-This plugin can use OpenStreetMap, and only when someone asks it to. It makes no other external request, collects nothing, and phones nowhere home.
+This plugin contacts two kinds of outside service, and only when someone on your site asks it to: **OpenStreetMap**, for venue maps and address lookup, and **calendar feeds that you choose** to import or follow. It sends no data about your site or your visitors anywhere else, and collects nothing.
 
-**Address lookup (administrators only).** When an administrator presses "Find from the address" while editing a venue, that venue's address is sent to Nominatim (nominatim.openstreetmap.org), the OpenStreetMap search service, to find its latitude and longitude. Nothing is sent unless that button is pressed.
+**Calendar feeds you import or follow (administrators only).** On the Import screen you can give the address of a calendar (an `.ics` or `webcal://` link, such as a public Google, Outlook or Apple calendar, or another website's event feed). Your server then downloads that address to read its events. When you choose to **follow** a calendar, your server downloads the same address again on the schedule you pick (hourly, twice a day, daily or weekly) until you remove it. The request goes only to the address you entered, and it sends nothing about your site except what any web request carries (your server's IP address and a user agent naming this plugin). Which service receives the request, and its terms and privacy policy, depend on the address you enter; check them with whoever provides the calendar. Uploading a file or pasting text contacts no one.
+
+**Address lookup (people who manage venues).** When someone presses "Find from the address" while editing a venue, their browser sends that venue's address to Nominatim (nominatim.openstreetmap.org), the OpenStreetMap search service, to find its latitude and longitude. Nothing is sent unless that button is pressed.
 
 **Venue map (visitors).** On an event page the map is not loaded with the page. In the default "ask first" mode it is loaded from openstreetmap.org only after the visitor presses "Show map", at which point the visitor's browser contacts OpenStreetMap, which receives their IP address and the map area requested. In "still picture" mode your own server fetches the map tiles once, stitches them into an image and serves it from your site, so the visitor's browser never contacts OpenStreetMap at all. In "no map" mode nothing is requested.
 
-Both services are provided by the OpenStreetMap Foundation: [terms of use](https://osmfoundation.org/wiki/Terms_of_Use), [privacy policy](https://osmfoundation.org/wiki/Privacy_Policy), [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/).
+The address lookup and the maps are provided by the OpenStreetMap Foundation: [terms of use](https://osmfoundation.org/wiki/Terms_of_Use), [privacy policy](https://osmfoundation.org/wiki/Privacy_Policy), [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/).
 
 == Screenshots ==
 
@@ -272,7 +286,7 @@ Map tiles and address lookup are provided by the [OpenStreetMap Foundation](http
 
 == More free plugins by the same developer ==
 
-RayEtun Events Calendar is part of a family of free WordPress plugins built by the same independent developer:
+RayEtun Accessible Events Calendar is part of a family of free WordPress plugins built by the same independent developer:
 
 * **TrustBio** — show who wrote and who reviewed every post: verified author credentials, reviewer bylines and author schema. [View on WordPress.org](https://wordpress.org/plugins/trustbio/)
 * **PixelVault** — organise your media library with nested drag-and-drop folders, then publish any folder as a downloadable Document Library. [View on WordPress.org](https://wordpress.org/plugins/pixelvault/)

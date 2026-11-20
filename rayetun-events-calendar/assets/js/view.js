@@ -1,5 +1,5 @@
 /**
- * RayEtun Events Calendar — moving around the calendar without a page reload.
+ * RayEtun Accessible Events Calendar — moving around the calendar without a page reload.
  *
  * Every control is a plain link or a form submit first. This module only
  * intercepts the ones that stay inside the calendar and swaps the region in

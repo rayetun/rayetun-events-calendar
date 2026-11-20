@@ -32,6 +32,7 @@ class Rest {
 	 */
 	public static function init(): void {
 		add_action( 'rest_api_init', array( __CLASS__, 'routes' ) );
+		add_filter( 'posts_where', array( __CLASS__, 'only_visible' ), 10, 2 );
 	}
 
 	/**
@@ -41,6 +42,57 @@ class Rest {
 	 */
 	public static function can_edit(): bool {
 		return current_user_can( 'edit_posts' );
+	}
+
+	/**
+	 * Whose unpublished events the current user may not see.
+	 *
+	 * Someone who can edit other people's events and read private ones sees
+	 * every event, as in the WordPress posts screen. Anyone else (an author
+	 * or a contributor) sees published events and their own, and nobody
+	 * else's drafts, pending or private events.
+	 *
+	 * @return int 0 when the user sees everything, otherwise the user's ID.
+	 */
+	public static function visible_to(): int {
+		$type = get_post_type_object( Post_Types::EVENT );
+		$caps = $type ? $type->cap : null;
+		if ( $caps && current_user_can( $caps->edit_others_posts ) && current_user_can( $caps->read_private_posts ) ) {
+			return 0;
+		}
+		return max( 1, get_current_user_id() );
+	}
+
+	/**
+	 * Keep a dashboard query to the events its user may see.
+	 *
+	 * Applies only to queries that carry `rayec_visible_to`, which the
+	 * dashboard's own lists set from visible_to().
+	 *
+	 * @param string   $where SQL WHERE clause.
+	 * @param WP_Query $query The query.
+	 * @return string
+	 */
+	public static function only_visible( $where, $query ) {
+		$user = $query instanceof WP_Query ? (int) $query->get( 'rayec_visible_to' ) : 0;
+		if ( ! $user ) {
+			return $where;
+		}
+		global $wpdb;
+		return $where . $wpdb->prepare( " AND ( {$wpdb->posts}.post_status = 'publish' OR {$wpdb->posts}.post_author = %d )", $user );
+	}
+
+	/**
+	 * An event's title, or a neutral name when the user may not see that event.
+	 *
+	 * @param int $event_id Event ID.
+	 * @return string
+	 */
+	private static function visible_title( int $event_id ): string {
+		if ( 'publish' === get_post_status( $event_id ) || current_user_can( 'edit_post', $event_id ) ) {
+			return get_the_title( $event_id );
+		}
+		return __( 'Another event', 'rayetun-events-calendar' );
 	}
 
 	/**
@@ -104,18 +156,18 @@ class Rest {
 			array( '/programs/(?P<id>\d+)', WP_REST_Server::EDITABLE, 'save_program', $manage, $id_arg ),
 			array( '/programs/(?P<id>\d+)', WP_REST_Server::DELETABLE, 'delete_program', $manage, $id_arg ),
 			array( '/holidays', WP_REST_Server::READABLE, 'holidays', $manage ),
-			array( '/import/read', WP_REST_Server::CREATABLE, 'import_read', $edit ),
-			array( '/import/run', WP_REST_Server::CREATABLE, 'import_run', $edit ),
+			array( '/import/read', WP_REST_Server::CREATABLE, 'import_read', $manage ),
+			array( '/import/run', WP_REST_Server::CREATABLE, 'import_run', $manage ),
 			array( '/migrate', WP_REST_Server::READABLE, 'migrate_scan', $manage ),
 			array( '/migrate/plan', WP_REST_Server::CREATABLE, 'migrate_plan', $manage ),
 			array( '/migrate/run', WP_REST_Server::CREATABLE, 'migrate_run', $manage ),
 			array( '/migrate/undo', WP_REST_Server::CREATABLE, 'migrate_undo', $manage ),
 			array( '/onboarding', WP_REST_Server::READABLE, 'onboarding', $manage ),
 			array( '/onboarding', WP_REST_Server::CREATABLE, 'onboarding_save', $manage ),
-			array( '/feeds', WP_REST_Server::READABLE, 'list_feeds', $edit ),
-			array( '/feeds', WP_REST_Server::CREATABLE, 'save_feed', $edit ),
-			array( '/feeds/(?P<id>[a-z0-9]+)/sync', WP_REST_Server::CREATABLE, 'sync_feed', $edit ),
-			array( '/feeds/(?P<id>[a-z0-9]+)', WP_REST_Server::DELETABLE, 'delete_feed', $edit ),
+			array( '/feeds', WP_REST_Server::READABLE, 'list_feeds', $manage ),
+			array( '/feeds', WP_REST_Server::CREATABLE, 'save_feed', $manage ),
+			array( '/feeds/(?P<id>[a-z0-9]+)/sync', WP_REST_Server::CREATABLE, 'sync_feed', $manage ),
+			array( '/feeds/(?P<id>[a-z0-9]+)', WP_REST_Server::DELETABLE, 'delete_feed', $manage ),
 			array( '/views', WP_REST_Server::READABLE, 'get_views', $edit ),
 			array( '/views', WP_REST_Server::CREATABLE, 'save_views', $edit ),
 			array( '/categories', WP_REST_Server::READABLE, 'list_categories', $edit ),
@@ -608,28 +660,32 @@ class Rest {
 		$statuses = array( 'publish', 'draft', 'pending', 'private' );
 		$today    = wp_date( 'Y-m-d' );
 		$now_utc  = gmdate( 'Y-m-d H:i:s' );
+		$viewer   = self::visible_to();
 
 		$today_rows = Occurrences::query(
 			array(
-				'start'    => self::utc( $today ),
-				'end'      => self::utc( $today, '+1 day' ),
-				'statuses' => $statuses,
-				'limit'    => 50,
+				'start'      => self::utc( $today ),
+				'end'        => self::utc( $today, '+1 day' ),
+				'statuses'   => $statuses,
+				'visible_to' => $viewer,
+				'limit'      => 50,
 			)
 		);
 		$week_rows  = Occurrences::query(
 			array(
-				'start'    => self::utc( $today, '+1 day' ),
-				'end'      => self::utc( $today, '+8 days' ),
-				'statuses' => $statuses,
-				'limit'    => 50,
+				'start'      => self::utc( $today, '+1 day' ),
+				'end'        => self::utc( $today, '+8 days' ),
+				'statuses'   => $statuses,
+				'visible_to' => $viewer,
+				'limit'      => 50,
 			)
 		);
 
-		// Accessibility score across upcoming events.
+		// Accessibility score across the upcoming events this user may see.
+		// With $viewer at 0 the last condition matches every row.
 		$table = $wpdb->prefix . Occurrences::TABLE;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- custom table; table name is internal.
-		$upcoming_ids = array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT o.event_id FROM {$table} o INNER JOIN {$wpdb->posts} p ON p.ID = o.event_id WHERE o.end_utc >= %s AND p.post_status IN ('publish','draft','pending','private') LIMIT 300", $now_utc ) ) );
+		$upcoming_ids = array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT o.event_id FROM {$table} o INNER JOIN {$wpdb->posts} p ON p.ID = o.event_id WHERE o.end_utc >= %s AND p.post_status IN ('publish','draft','pending','private') AND ( %d = 0 OR p.post_status = 'publish' OR p.post_author = %d ) LIMIT 300", $now_utc, $viewer, $viewer ) ) );
 
 		Event::prime( $upcoming_ids );
 
@@ -662,6 +718,19 @@ class Rest {
 		$counts = wp_count_posts( Post_Types::EVENT );
 		$venues = wp_count_posts( Post_Types::VENUE );
 		$all    = (int) ( $counts->publish ?? 0 ) + (int) ( $counts->draft ?? 0 ) + (int) ( $counts->pending ?? 0 ) + (int) ( $counts->private ?? 0 );
+		$drafts = (int) ( $counts->draft ?? 0 ) + (int) ( $counts->pending ?? 0 );
+		if ( $viewer ) {
+			// Only this user's own drafts are theirs to count.
+			$drafts = (int) ( new WP_Query(
+				array(
+					'post_type'      => Post_Types::EVENT,
+					'post_status'    => array( 'draft', 'pending' ),
+					'author'         => $viewer,
+					'posts_per_page' => 1,
+					'fields'         => 'ids',
+				)
+			) )->found_posts;
+		}
 
 		$has_access = false;
 		foreach ( Venue::all() as $venue ) {
@@ -677,7 +746,7 @@ class Rest {
 				'this_week' => count( $today_rows ) + count( $week_rows ),
 				'recurring' => $recurring,
 				'venues'    => (int) ( $venues->publish ?? 0 ),
-				'drafts'    => (int) ( $counts->draft ?? 0 ) + (int) ( $counts->pending ?? 0 ),
+				'drafts'    => $drafts,
 			),
 			'today'       => self::occurrence_views( $today_rows ),
 			'week'        => self::occurrence_views( $week_rows ),
@@ -742,15 +811,17 @@ class Rest {
 		$per_page = max( 1, min( 100, (int) ( $request->get_param( 'per_page' ) ? $request->get_param( 'per_page' ) : 20 ) ) );
 
 		$args = array(
-			'post_type'      => Post_Types::EVENT,
-			'post_status'    => in_array( $status, array( 'publish', 'draft', 'pending', 'private', 'trash' ), true ) ? $status : array( 'publish', 'draft', 'pending', 'private' ),
-			'posts_per_page' => $per_page,
-			'paged'          => max( 1, (int) $request->get_param( 'page' ) ),
-			's'              => sanitize_text_field( (string) $request->get_param( 'search' ) ),
+			'post_type'        => Post_Types::EVENT,
+			'post_status'      => in_array( $status, array( 'publish', 'draft', 'pending', 'private', 'trash' ), true ) ? $status : array( 'publish', 'draft', 'pending', 'private' ),
+			'posts_per_page'   => $per_page,
+			'paged'            => max( 1, (int) $request->get_param( 'page' ) ),
+			's'                => sanitize_text_field( (string) $request->get_param( 'search' ) ),
 			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- admin list ordered by start date.
-			'meta_key'       => '_rayec_start',
-			'orderby'        => 'meta_value',
-			'order'          => 'past' === $when ? 'DESC' : 'ASC',
+			'meta_key'         => '_rayec_start',
+			'orderby'          => 'meta_value',
+			'order'            => 'past' === $when ? 'DESC' : 'ASC',
+			// Other people's drafts and private events only for those who may edit them; see only_visible().
+			'rayec_visible_to' => self::visible_to(),
 		);
 
 		if ( in_array( $when, array( 'upcoming', 'past' ), true ) ) {
@@ -978,10 +1049,11 @@ class Rest {
 	public static function list_occurrences( WP_REST_Request $request ): array {
 		$rows = Occurrences::query(
 			array(
-				'start'    => self::utc( (string) $request->get_param( 'start' ) ),
-				'end'      => self::utc( (string) $request->get_param( 'end' ), '+1 day' ),
-				'statuses' => array( 'publish', 'draft', 'pending', 'private' ),
-				'limit'    => 2000,
+				'start'      => self::utc( (string) $request->get_param( 'start' ) ),
+				'end'        => self::utc( (string) $request->get_param( 'end' ), '+1 day' ),
+				'statuses'   => array( 'publish', 'draft', 'pending', 'private' ),
+				'visible_to' => self::visible_to(),
+				'limit'      => 2000,
 			)
 		);
 		return self::occurrence_views( $rows );
@@ -1065,7 +1137,7 @@ class Rest {
 				}
 				$conflicts[] = array(
 					'when'  => $label,
-					'title' => get_the_title( (int) $clash->event_id ),
+					'title' => self::visible_title( (int) $clash->event_id ),
 					'room'  => $other,
 				);
 			}
@@ -1079,7 +1151,7 @@ class Rest {
 			foreach ( $busy as $clash ) {
 				$conflicts[] = array(
 					'when'    => $label,
-					'title'   => get_the_title( (int) $clash->event_id ),
+					'title'   => self::visible_title( (int) $clash->event_id ),
 					'room'    => '',
 					'speaker' => get_the_title( (int) $clash->speaker_id ),
 				);

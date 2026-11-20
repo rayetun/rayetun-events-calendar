@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<ruleset name="RayEtun Events Calendar">
+<ruleset name="RayEtun Accessible Events Calendar">
 	<description>WordPress coding standards for the plugin.</description>
 
 	<!-- Only the plugin itself: the sources and tooling around it are not shipped. -->

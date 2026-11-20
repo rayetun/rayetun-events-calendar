@@ -1,5 +1,5 @@
 /**
- * RayEtun Events Calendar — countdown.
+ * RayEtun Accessible Events Calendar — countdown.
  *
  * The figure is already written out by PHP, so the block reads correctly with
  * this file blocked. All this does is keep it fresh while the page is open.

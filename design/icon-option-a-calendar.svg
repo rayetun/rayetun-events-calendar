@@ -1,4 +1,4 @@
-<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="RayEtun Events Calendar">
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="RayEtun Accessible Events Calendar">
   <style>
     /* The date finder. A ring glides along the middle row and decelerates
        onto the one day that has something on it, holds, then fades. One pass

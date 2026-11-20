@@ -82,6 +82,7 @@ const CORE_SCREENS = [
 		label: __( 'Import', 'rayetun-events-calendar' ),
 		icon: 'download',
 		component: ImportScreen,
+		manage: true,
 	},
 	{
 		path: '/settings',

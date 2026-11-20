@@ -33,12 +33,29 @@ class Occurrences {
 	const MAX_PER_EVENT = 1000;
 
 	/**
+	 * Repeating events rebuilt by one background job.
+	 */
+	const BATCH_SIZE = 25;
+
+	/**
+	 * The one-off job that carries on when a batch leaves series waiting.
+	 */
+	const BATCH_HOOK = 'rayec_extend_occurrences_batch';
+
+	/**
+	 * Post meta: how far a series' stored dates reach (UTC Y-m-d), or
+	 * "complete" when the series has no dates beyond them.
+	 */
+	const REACH_META = '_rayec_rows_reach';
+
+	/**
 	 * Hooks.
 	 *
 	 * @return void
 	 */
 	public static function init(): void {
 		add_action( Installer::CRON_HOOK, array( __CLASS__, 'extend_all' ) );
+		add_action( self::BATCH_HOOK, array( __CLASS__, 'extend_all' ) );
 		add_action( 'before_delete_post', array( __CLASS__, 'delete_for_event' ) );
 
 		// Anything read earlier in this request may now be wrong. Saving goes
@@ -84,6 +101,10 @@ class Occurrences {
 
 		$event = Event::get( $event_id );
 		if ( ! $event || '' === $event['start'] ) {
+			if ( $event ) {
+				// Nothing to extend until the event has a start again.
+				update_post_meta( $event_id, self::REACH_META, 'complete' );
+			}
 			return 0;
 		}
 
@@ -91,6 +112,7 @@ class Occurrences {
 		$start = Event::local_datetime( $event['start'], $tz );
 		$end   = Event::local_datetime( $event['end'], $tz );
 		if ( ! $start ) {
+			update_post_meta( $event_id, self::REACH_META, 'complete' );
 			return 0;
 		}
 		$duration = $end ? max( 0, $end->getTimestamp() - $start->getTimestamp() ) : HOUR_IN_SECONDS;
@@ -100,6 +122,7 @@ class Occurrences {
 		$starts     = $event['rrule']
 			? Recurrence::expand( $start, $event['rrule'], $window_end, self::MAX_PER_EVENT )
 			: array( $start );
+		self::note_reach( $event_id, (string) $event['rrule'], $starts, $window_end );
 
 		$excluded = array_flip( $event['exdates'] );
 		if ( $event['skip_closed'] && $event['rrule'] ) {
@@ -188,32 +211,106 @@ class Occurrences {
 	}
 
 	/**
-	 * Daily job: push the rolling window forward for repeating events.
+	 * Push the rolling window forward for repeating events, a few at a time.
+	 *
+	 * Runs once a day. Each run rebuilds at most BATCH_SIZE series, and only
+	 * those that need it: series whose stored dates reach less than a month
+	 * short of the full window. A series that has no more dates to add (its
+	 * end date or count is already inside the window) is marked complete and
+	 * left alone. When more series are waiting, the next batch is scheduled
+	 * a few minutes later, so a site with many series is brought up to date
+	 * over several short jobs, not one long one.
 	 *
 	 * @return void
 	 */
 	public static function extend_all(): void {
-		$ids = get_posts(
-			array(
-				'post_type'      => Post_Types::EVENT,
-				'post_status'    => array( 'publish', 'draft', 'pending', 'private', 'future' ),
-				// phpcs:ignore WordPress.WP.PostsPerPage.posts_per_page_posts_per_page -- a deliberate ceiling.
-				'posts_per_page' => 500,
-				'fields'         => 'ids',
-				'no_found_rows'  => true,
-				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- daily background job.
-				'meta_query'     => array(
-					array(
-						'key'     => '_rayec_rrule',
-						'value'   => '',
-						'compare' => '!=',
-					),
-				),
-			)
-		);
-		foreach ( $ids as $id ) {
+		/**
+		 * Filters how many repeating events one background job rebuilds.
+		 *
+		 * @param int $size Series per batch.
+		 */
+		$size = max( 1, min( 200, (int) apply_filters( 'rayec_extend_batch_size', self::BATCH_SIZE ) ) );
+
+		$ids = self::series_to_extend( $size + 1 );
+		foreach ( array_slice( $ids, 0, $size ) as $id ) {
 			self::regenerate( (int) $id );
 		}
+
+		if ( count( $ids ) > $size && ! wp_next_scheduled( self::BATCH_HOOK ) ) {
+			wp_schedule_single_event( time() + 5 * MINUTE_IN_SECONDS, self::BATCH_HOOK );
+		}
+	}
+
+	/**
+	 * Repeating events whose stored dates are due to be extended.
+	 *
+	 * @param int $limit How many to return.
+	 * @return int[]
+	 */
+	public static function series_to_extend( int $limit ): array {
+		// A series rebuilt within the last month still has 23 of its 24 months.
+		$due = wp_date( 'Y-m-d', strtotime( '+' . ( self::WINDOW_MONTHS - 1 ) . ' months' ), new DateTimeZone( 'UTC' ) );
+
+		return array_map(
+			'intval',
+			get_posts(
+				array(
+					'post_type'      => Post_Types::EVENT,
+					'post_status'    => array( 'publish', 'draft', 'pending', 'private', 'future' ),
+					'posts_per_page' => $limit,
+					'fields'         => 'ids',
+					'no_found_rows'  => true,
+					'orderby'        => 'ID',
+					'order'          => 'ASC',
+					// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- background job, a small batch at a time.
+					'meta_query'     => array(
+						'relation' => 'AND',
+						array(
+							'key'     => '_rayec_rrule',
+							'value'   => '',
+							'compare' => '!=',
+						),
+						array(
+							'relation' => 'OR',
+							array(
+								'key'     => self::REACH_META,
+								'compare' => 'NOT EXISTS',
+							),
+							// 'complete' sorts after every date, so a finished series never matches.
+							array(
+								'key'     => self::REACH_META,
+								'value'   => $due,
+								'compare' => '<',
+								'type'    => 'CHAR',
+							),
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * Note how far a series' stored dates reach, for extend_all().
+	 *
+	 * @param int                 $event_id   Event ID.
+	 * @param string              $rrule      The event's rule.
+	 * @param DateTimeImmutable[] $starts     The starts that were generated.
+	 * @param DateTimeImmutable   $window_end Where the window stopped.
+	 * @return void
+	 */
+	private static function note_reach( int $event_id, string $rrule, array $starts, DateTimeImmutable $window_end ): void {
+		if ( '' === $rrule ) {
+			delete_post_meta( $event_id, self::REACH_META );
+			return;
+		}
+		$rule = Recurrence::parse( $rrule );
+		// UNTIL starts with its date as Ymd, which compares as a string.
+		$until    = substr( (string) $rule['UNTIL'], 0, 8 );
+		$complete = count( $starts ) >= self::MAX_PER_EVENT
+			|| ( $rule['COUNT'] > 0 && count( $starts ) >= $rule['COUNT'] )
+			|| ( 8 === strlen( $until ) && $until <= $window_end->format( 'Ymd' ) );
+		update_post_meta( $event_id, self::REACH_META, $complete ? 'complete' : $window_end->setTimezone( new DateTimeZone( 'UTC' ) )->format( 'Y-m-d' ) );
 	}
 
 	/**
@@ -284,6 +381,13 @@ class Occurrences {
 
 		$where  = array( 'p.post_type = %s', 'p.post_status IN (' . implode( ',', array_fill( 0, count( $statuses ), '%s' ) ) . ')' );
 		$values = array_merge( array( Post_Types::EVENT ), $statuses );
+
+		// Someone who may not see other people's unpublished events gets
+		// published ones and their own. See Rest::visible_to().
+		if ( ! empty( $args['visible_to'] ) ) {
+			$where[]  = "( p.post_status = 'publish' OR p.post_author = %d )";
+			$values[] = (int) $args['visible_to'];
+		}
 
 		if ( ! empty( $args['start'] ) ) {
 			$where[]  = 'o.end_utc >= %s';

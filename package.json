@@ -2,7 +2,7 @@
 	"name": "rayetun-events-calendar",
 	"version": "1.0.0",
 	"private": true,
-	"description": "RayEtun Events Calendar – admin app and block build.",
+	"description": "RayEtun Accessible Events Calendar – admin app and block build.",
 	"license": "GPL-2.0-or-later",
 	"scripts": {
 		"build": "wp-scripts build",

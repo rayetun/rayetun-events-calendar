@@ -691,11 +691,26 @@ class Import {
 		$failed     = array();
 		$event_ids  = array();
 
+		// Someone who cannot publish sends new events for review instead.
+		$type = get_post_type_object( Post_Types::EVENT );
+		if ( 'publish' === $status && ! ( $type && current_user_can( $type->cap->publish_posts ) ) ) {
+			$status = 'pending';
+		}
+
 		foreach ( $items as $item ) {
 			if ( '' === trim( (string) $item['title'] ) || '' === trim( (string) $item['start'] ) ) {
 				continue;
 			}
 			$existing = self::existing( (string) $item['uid'], $source );
+
+			// An event imported before is only updated by someone who may edit it.
+			if ( $existing && ! current_user_can( 'edit_post', $existing ) ) {
+				$failed[] = array(
+					'title'  => $item['title'],
+					'reason' => __( 'This event is already on the site, and you are not allowed to change it.', 'rayetun-events-calendar' ),
+				);
+				continue;
+			}
 
 			$categories = $category ? array( $category ) : array();
 			if ( $use_terms ) {
@@ -804,6 +819,10 @@ class Import {
 		$term = get_term_by( 'name', $name, Post_Types::CATEGORY );
 		if ( $term && ! is_wp_error( $term ) ) {
 			return (int) $term->term_id;
+		}
+		$taxonomy = get_taxonomy( Post_Types::CATEGORY );
+		if ( ! $taxonomy || ! current_user_can( $taxonomy->cap->manage_terms ) ) {
+			return 0;
 		}
 		$made = wp_insert_term( $name, Post_Types::CATEGORY );
 		return is_wp_error( $made ) ? 0 : (int) $made['term_id'];
